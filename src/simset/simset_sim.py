@@ -115,7 +115,9 @@ class SimSET_Simulation(object):
         div_0_dir = join(self.output_dir, "division_0")
 
         for j in ['trues', 'scatter', 'randoms']:
-            hdr_ = join(div_0_dir, "%s.hdr" % j)
+            #hdr_ = join(div_0_dir, "%s.hdr" % j)
+            hdr_ = join(div_0_dir, "%s.nii" % j)
+            #hdr_ = join(div_0_dir, "%s.nii.gz" % j)
             if exists(hdr_):
                 counts_ = tools.ncounts(hdr_)
                 print("Number of %s in simulation: %s" % (j, counts_))
@@ -343,21 +345,33 @@ class SimSET_Simulation(object):
         division_zero = join(self.output_dir, "division_0")
 
         for image in ["trues", "scatter", "randoms"]:
-            zero_image = join(division_zero, image + ".hdr")
+            #zero_image = join(division_zero, image + ".hdr")
+            zero_image = join(division_zero, image + ".nii")
+            #zero_image = join(division_zero, image + ".nii.gz")
 
             if exists(zero_image):
                 print("Adding sinograms for %s" % image)
-
+                
+                #This is to create the postlog file in case there is only one simulation, to avoid double attenuation computing!
+                message = "Adding sinograms for %s" % image
+                tools.log_message(log_file, message)
+                
                 for division in range(1, self.divisions):
                     division_dir = join(self.output_dir, "division_" + str(division))
-                    division_image = join(division_dir, image + ".hdr")
+                    #division_image = join(division_dir, image + ".hdr")
+                    division_image = join(division_dir, image + ".nii")
+                    #division_image = join(division_dir, image + ".nii.gz")
                     message = "Adding %s from simulation %s" % (image, division)
                     tools.log_message(log_file, message)
-                    tools.operate_images_analyze(
+                    
+                    #tools.operate_images_nii( #RESTABLISH IF FAILS [NOT COMPUTING NANS!]
+                    tools.operate_sinograms_nii(
                         zero_image, division_image, zero_image, "sum"
                     )
-                    os.remove(division_image)
-                    os.remove(division_image[0:-3] + "img")
+                    #os.remove(division_image)
+                    #os.remove(division_image[0:-3] + "img")
+                    os.remove(division_image[0:-3] + "nii")
+                    #os.remove(division_image[0:-6] + "nii.gz")
 
         for hist in ["phg_hf.hist", "det_hf.hist"]:
             zero_hist = join(division_zero, hist)
@@ -365,19 +379,23 @@ class SimSET_Simulation(object):
             if exists(zero_hist):
                 print(" ")
                 print("Adding History Files for %s" % hist)
-
+                
+                #PUT IN FUNCTION OF DETLISTMODE (MISSING NOW?)
                 output = join(division_zero, "tmp_" + hist)
 
                 for division in range(1, self.divisions):
                     division_dir = join(self.output_dir, "division_" + str(division))
                     division_hist = join(division_dir, hist)
                     file_list = zero_hist + " " + division_hist
-                    simset_tools.combine_history_files(
-                        self.simset_dir, file_list, output, log_file
-                    )
-                    shutil.move(output, zero_hist)
+                    #simset_tools.combine_history_files(
+                    #    self.simset_dir, file_list, output, log_file
+                    #) #IMPORTANT! RESTABLISH IF FAILS!
+                    # shutil.move(output, zero_hist)
                     # Once everything is combined in division_0, remove the other division
                     shutil.rmtree(division_dir)
+                
+                os.remove(join(division_zero, "det_hf.hist")) #IMPORTANT! REMOVE IF FAILS.
+                    
 
         if self.add_randoms == 1:
             # To have randoms in the final history file, we need to add randoms to the final det_hf.hist
@@ -404,17 +422,34 @@ class SimSET_Simulation(object):
             simset_tools.combine_history_files(
                 self.simset_dir, file_list, output, log_file
             )
+        
+        self.stir_norm_from_att_map = self.scanner.get("stir_norm_from_att_map")
+        
+        if self.stir_norm_from_att_map != 1:
+        
+            print("Calculating attenuation map...")
+            print(" ")
 
-        print("Calculating attenuation map...")
-        print(" ")
+            output_atten = "attenuationsino"
+            #RESTABLISH IF FAILS:
+            #hdr_to_copy = join("trues.hdr")
+            hdr_to_copy = join("trues.nii")
+            #hdr_to_copy = join("trues.nii.gz")
 
-        output_atten = "attenuationsino"
-        hdr_to_copy = join("trues.hdr")
-
-        simset_tools.simset_calcattenuation(
-            self.simset_dir, division_zero, output_atten, hdr_to_copy, nrays=1
-        )
-
+            simset_tools.simset_calcattenuation(
+                self.simset_dir, division_zero, output_atten, hdr_to_copy, nrays=1, timeout=None
+            )
+        
+        #To remove unnecessary files once endeded the sim. Add condition: If exists.
+        #Also: Change directory name to "simuulation". IMPORTANT! REMOVE IF FAILS:
+        #os.remove(join(division_zero, "rec.weight"))
+        #os.remove(join(division_zero, "rec.act_indexes"))
+        #os.remove(join(division_zero, "rec.activity_image"))
+        #os.remove(join(division_zero, "rec.att_indexes"))
+        #os.remove(join(division_zero, "rec.attenuation_image"))
+        #os.remove(join(division_zero, "sampling_rec"))
+        #os.remove(join(division_zero, "attenuationsino"))
+        
 
 class SimSET_Reconstruction(object):
     """This class provides functions to reconstruct a SimSET simulation."""
@@ -426,7 +461,7 @@ class SimSET_Reconstruction(object):
         self.simpet_dir = dirname(abspath(__file__))
         self.dir_stir = config.get("dir_stir")
 
-        self.input_dir = join(projections_dir, "division_0")
+        self.input_dir = join(projections_dir, "division_0") #CHANGE TO "SIMULATION"!!!
         self.output_dir = reconstructions_dir
 
         self.params = params
@@ -451,7 +486,9 @@ class SimSET_Reconstruction(object):
     def run(self):
         if not exists(self.output_dir):
             os.makedirs(self.output_dir)
-
+        
+        #if (not exists(join(self.output_dir, "stir_sinogram.nii.gz")) or (not exists(join(self.output_dir, "stir_sinogram.nii.gz"))
+        
         self.prepare_recons()
         self.run_recons()
 
@@ -459,26 +496,78 @@ class SimSET_Reconstruction(object):
         from src.stir import stir_tools
 
         print("Preparing files for reconstruction")
+        
+        self.stir_norm_from_att_map = self.scanner.get("stir_norm_from_att_map")
+        
+        
+        #RESTABLISH IF FAILS:
+        #trues_sino = join(self.input_dir, "trues.hdr")
+        #scatter_sino = join(self.input_dir, "scatter.hdr")
+        #randoms_sino = join(self.input_dir, "randoms.hdr")
 
-        trues_sino = join(self.input_dir, "trues.hdr")
-        scatter_sino = join(self.input_dir, "scatter.hdr")
-        randoms_sino = join(self.input_dir, "randoms.hdr")
+        #corr_scatter_sino = join(self.input_dir, "corr_scatter.hdr")
+        #corr_randoms_sino = join(self.input_dir, "corr_randoms.hdr")
+        #my_simset_sino = join(self.input_dir, "my_sinogram.hdr")
+        #additive_sinogram = join(self.input_dir, "additive_sinogram.hdr")
+        #att_sino = join(self.input_dir, "attenuationsino.hdr")
+        
+        
+        #trues_sino = join(self.input_dir, "trues.nii")
+        #scatter_sino = join(self.input_dir, "scatter.nii")
+        #randoms_sino = join(self.input_dir, "randoms.nii")
 
-        corr_scatter_sino = join(self.input_dir, "corr_scatter.hdr")
-        corr_randoms_sino = join(self.input_dir, "corr_randoms.hdr")
-        my_simset_sino = join(self.input_dir, "my_sinogram.hdr")
-        additive_sinogram = join(self.input_dir, "additive_sinogram.hdr")
+        #corr_scatter_sino = join(self.input_dir, "corr_scatter.nii")
+        #corr_randoms_sino = join(self.input_dir, "corr_randoms.nii")
+        #my_simset_sino = join(self.input_dir, "my_sinogram.nii")
+        #additive_sinogram = join(self.input_dir, "additive_sinogram.nii")
+        #att_sino = join(self.input_dir, "attenuationsino.nii")
+        
+        """
+        trues_sino = join(self.input_dir, "trues.nii.gz")
+        scatter_sino = join(self.input_dir, "scatter.nii.gz")
+        randoms_sino = join(self.input_dir, "randoms.nii.gz")
 
-        tools.operate_single_image(
-            scatter_sino,
-            "mult",
-            self.scatt_corr_factor,
-            corr_scatter_sino,
-            self.log_file,
-        )
-        tools.operate_images_analyze(
-            trues_sino, corr_scatter_sino, my_simset_sino, operation="sum"
-        )
+        corr_scatter_sino = join(self.input_dir, "corr_scatter.nii.gz")
+        corr_randoms_sino = join(self.input_dir, "corr_randoms.nii.gz")
+        my_simset_sino = join(self.input_dir, "my_sinogram.nii.gz")
+        additive_sinogram = join(self.input_dir, "additive_sinogram.nii.gz")
+        att_sino = join(self.input_dir, "attenuationsino.nii.gz")
+        """
+        
+        #Delete:
+        trues_sino = join(self.input_dir, "trues.nii")
+        scatter_sino = join(self.input_dir, "scatter.nii")
+        randoms_sino = join(self.input_dir, "randoms.nii")
+
+        corr_scatter_sino = join(self.input_dir, "corr_scatter.nii")
+        corr_randoms_sino = join(self.input_dir, "corr_randoms.nii")
+        my_simset_sino = join(self.input_dir, "my_sinogram.nii")
+        additive_sinogram = join(self.input_dir, "additive_sinogram.nii")
+        att_sino = join(self.input_dir, "attenuationsino.nii")
+        
+        #RESTABLISH IF FAILS:
+        #tools.operate_single_image(
+        
+        print("MULTIPLYING CORR_SCATTER_SINO")        
+        
+        if not exists(corr_scatter_sino):
+            tools.operate_single_image_nii(
+                scatter_sino,
+                "mult",
+                self.scatt_corr_factor,
+                corr_scatter_sino,
+                self.log_file,
+                check_nans = False,
+            )
+        
+        print("SUMMING TRUES AND CORR SCATTER")   
+        
+        #RESTABLISH IF FAILS:
+        #tools.operate_images_analyze(
+        if not exists(my_simset_sino):
+            tools.operate_images_nii(
+                trues_sino, corr_scatter_sino, my_simset_sino, operation="sum", check_nans = False,
+            )
 
         if self.add_randoms == 1:
             tools.operate_single_image(
@@ -497,33 +586,261 @@ class SimSET_Reconstruction(object):
                     scatter_sino, randoms_sino, additive_sinogram, operation="sum"
                 )
             else:
-                tools.copy_analyze(scatter_sino, additive_sinogram)
+                #RESTABLISH IF FAILS
+                #tools.copy_analyze(scatter_sino, additive_sinogram)
+                tools.copy_nifti(scatter_sino, additive_sinogram)
 
         else:
-            tools.copy_analyze(scatter_sino, additive_sinogram)
-
-        tools.smooth_analyze(additive_sinogram, 10, additive_sinogram)
-
+            #RESTABLISH IF FAILS
+            #tools.copy_analyze(scatter_sino, additive_sinogram)
+            
+            print("COPYING ADDITIVE SINO")  
+            if not exists(additive_sinogram):
+                tools.copy_nifti(scatter_sino, additive_sinogram)
+                print("SMOOTHING ADDITIVE SINO")
+                tools.smooth_nifti(additive_sinogram, 10, additive_sinogram)
+        
+        #RESTABLISH IF FAILS
+        #tools.smooth_analyze(additive_sinogram, 10, additive_sinogram)
+        
+        #if not exists(additive_sinogram):
+        #    tools.smooth_nifti(additive_sinogram, 10, additive_sinogram)
+        
+        
+        #RESTABLISH IF FAILS:
+        """
         sinogram_stir = join(self.output_dir, "stir_sinogram.hdr")
         tools.convert_simset_sino_to_stir(my_simset_sino, sinogram_stir)
-        shutil.copy(sinogram_stir[0:-3] + "img", sinogram_stir[0:-3] + "s")
+        shutil.copy(sinogram_stir[0:-3] + "bin", sinogram_stir[0:-3] + "s") #PREVIOUS: img
         stir_tools.create_stir_hs_from_detparams(
             self.scanner, sinogram_stir[0:-3] + "hs"
         )
 
         additive_sino_stir = join(self.output_dir, "stir_additivesino.hdr")
         tools.convert_simset_sino_to_stir(additive_sinogram, additive_sino_stir)
-        shutil.copy(additive_sino_stir[0:-3] + "img", additive_sino_stir[0:-3] + "s")
+        shutil.copy(additive_sino_stir[0:-3] + "img", additive_sino_stir[0:-3] + "s") #PREVIOUS: img
         stir_tools.create_stir_hs_from_detparams(
             self.scanner, additive_sino_stir[0:-3] + "hs"
         )
 
-        att_sino = join(self.input_dir, "attenuationsino.hdr")
+        #att_sino = join(self.input_dir, "attenuationsino.hdr")
+        #att_sino = join(self.input_dir, "attenuationsino.nii")
         att_stir = join(self.output_dir, "stir_att.hdr")
         tools.convert_simset_sino_to_stir(att_sino, att_stir)
-        shutil.copy(att_stir[0:-3] + "img", att_stir[0:-3] + "s")
+        shutil.copy(att_stir[0:-3] + "bin", att_stir[0:-3] + "s") #PREVIOUS: img
         stir_tools.create_stir_hs_from_detparams(self.scanner, att_stir[0:-3] + "hs")
+        """
+        
+        ##### THIS IS FOR .nii:
+        #sinogram_stir = join(self.output_dir, "stir_sinogram.nii")
+        #tools.convert_simset_sino_to_stir_nii(my_simset_sino, sinogram_stir)
+        #shutil.copy(sinogram_stir[0:-3] + "img", sinogram_stir[0:-3] + "s")
+        #stir_tools.create_stir_hs_from_detparams(
+        #    self.scanner, sinogram_stir[0:-3] + "hs"
+        #)
+        #os.remove(sinogram_stir[0:-3] + "img")
+        #os.remove(sinogram_stir[0:-3] + "hdr")
+        
+        #additive_sino_stir = join(self.output_dir, "stir_additivesino.nii")
+        #tools.convert_simset_sino_to_stir_nii(additive_sinogram, additive_sino_stir)
+        #shutil.copy(additive_sino_stir[0:-3] + "img", additive_sino_stir[0:-3] + "s")
+        #stir_tools.create_stir_hs_from_detparams(
+        #    self.scanner, additive_sino_stir[0:-3] + "hs"
+        #)
+        #os.remove(additive_sino_stir[0:-3] + "img")
+        #os.remove(additive_sino_stir[0:-3] + "hdr")
 
+        #att_sino = join(self.input_dir, "attenuationsino.nii")
+        #att_stir = join(self.output_dir, "stir_att.nii")
+        #tools.convert_simset_sino_to_stir_nii(att_sino, att_stir)
+        #shutil.copy(att_stir[0:-3] + "img", att_stir[0:-3] + "s")
+        #stir_tools.create_stir_hs_from_detparams(
+        #    self.scanner, att_stir[0:-3] + "hs"
+        #)
+        #os.remove(att_stir[0:-3] + "img")
+        #os.remove(att_stir[0:-3] + "hdr")
+        
+        
+        ##### THIS IS FOR .nii.gz:
+        #sinogram_stir = join(self.output_dir, "stir_sinogram.nii.gz")
+        #tools.convert_simset_sino_to_stir_nii(my_simset_sino, sinogram_stir)
+        #shutil.copy(sinogram_stir[0:-6] + "img", sinogram_stir[0:-6] + "s")
+        #stir_tools.create_stir_hs_from_detparams(
+        #    self.scanner, sinogram_stir[0:-6] + "hs"
+        #)
+        #os.remove(sinogram_stir[0:-6] + "img")
+        #os.remove(sinogram_stir[0:-6] + "hdr")
+        
+        #additive_sino_stir = join(self.output_dir, "stir_additivesino.nii.gz")
+        #tools.convert_simset_sino_to_stir_nii(additive_sinogram, additive_sino_stir)
+        #shutil.copy(additive_sino_stir[0:-6] + "img", additive_sino_stir[0:-6] + "s")
+        #stir_tools.create_stir_hs_from_detparams(
+        #    self.scanner, additive_sino_stir[0:-6] + "hs"
+        #)
+        #os.remove(additive_sino_stir[0:-6] + "img")
+        #os.remove(additive_sino_stir[0:-6] + "hdr")
+
+        #att_stir = join(self.output_dir, "stir_att.nii.gz")
+        #tools.convert_simset_sino_to_stir_nii(att_sino, att_stir)
+        #shutil.copy(att_stir[0:-6] + "img", att_stir[0:-6] + "s")
+        #stir_tools.create_stir_hs_from_detparams(
+        #    self.scanner, att_stir[0:-6] + "hs"
+        #)
+        #os.remove(att_stir[0:-6] + "img")
+        #os.remove(att_stir[0:-6] + "hdr")
+        
+        
+        ##### THIS IS FOR .nii.gz [NEW VERSION (FILE REOIRGANIZATION):
+        
+        num_rings = self.scanner.get("num_rings")
+        max_segment = self.scanner.get("max_segment")
+        
+        print("GENERATING STIR SINOGRAM")
+        
+        #sinogram_stir_nii = join(self.input_dir, "stir_sinogram.nii.gz")
+        sinogram_stir_nii = join(self.input_dir, "stir_sinogram.nii")
+        sinogram_stir_s = join(self.output_dir, "stir_sinogram.s")
+        sinogram_stir_hs = join(self.output_dir, "stir_sinogram.hs")
+        
+        if not exists(sinogram_stir_nii):
+            tools.convert_simset_sino_to_stir_nii(my_simset_sino, sinogram_stir_nii)
+            
+        tools.copy_sinogram_stir_to_output(sinogram_stir_nii, sinogram_stir_s)
+        #tools.copy_reduced_sinogram_stir_to_output(sinogram_stir_nii, sinogram_stir_s, num_rings, max_segment)
+        
+        stir_tools.create_stir_hs_from_detparams(
+        #stir_tools.create_reduced_stir_hs_from_detparams(
+            self.scanner, sinogram_stir_hs
+        )
+        
+        print("GENERATING STIR ADDITIVE")
+        
+        #additivesino_stir_nii = join(self.input_dir, "stir_additivesino.nii.gz")
+        additivesino_stir_nii = join(self.input_dir, "stir_additivesino.nii")
+        additivesino_stir_s = join(self.output_dir, "stir_additivesino.s")
+        additivesino_stir_hs = join(self.output_dir, "stir_additivesino.hs")
+        
+        if not exists(additivesino_stir_nii):
+            tools.convert_simset_sino_to_stir_nii(additive_sinogram, additivesino_stir_nii)
+            
+        tools.copy_sinogram_stir_to_output(additivesino_stir_nii, additivesino_stir_s)
+        #tools.copy_reduced_sinogram_stir_to_output(additivesino_stir_nii, additivesino_stir_s, num_rings, max_segment)
+        
+        stir_tools.create_stir_hs_from_detparams(
+        #stir_tools.create_reduced_stir_hs_from_detparams(
+            self.scanner, additivesino_stir_hs
+        )
+    
+        print("GENERATING STIR ATT")
+        
+        if self.stir_norm_from_att_map != 1:
+            
+            #att_stir_nii = join(self.input_dir, "stir_att.nii.gz")
+            att_stir_nii = join(self.input_dir, "stir_att.nii")
+            att_stir_s = join(self.output_dir, "stir_att.s")
+            att_stir_hs = join(self.output_dir, "stir_att.hs")
+            
+            if not exists(att_stir_nii):
+                tools.convert_simset_sino_to_stir_nii(att_sino, att_stir_nii)
+                
+            tools.copy_sinogram_stir_to_output(att_stir_nii, att_stir_s)
+            #tools.copy_reduced_sinogram_stir_to_output(att_stir_nii, att_stir_s, num_rings, max_segment)
+            
+            stir_tools.create_stir_hs_from_detparams(
+            #stir_tools.create_reduced_stir_hs_from_detparams(
+                self.scanner, att_stir_hs
+            )
+        
+        """ #RESTABLISH IF FAILS:
+        if self.stir_norm_from_att_map == 1:
+        
+            attmap = nib.load(join('Data', self.params.get("patient_dirname"), self.params.get("act_map")))
+
+            attmap_dim = np.shape(attmap)
+            attmap_pixsize = attmap.header['pixdim'][1:4]
+            
+            
+            filedims = [attmap_dim[2], attmap_dim[0], attmap_dim[1]]  #[618, 440, 440]
+            dtype = np.uint32 #np.float32   # or np.uint8, np.float32, etc.
+
+            with open(join(self.input_dir, "rec.att_indexes"), "rb") as f:
+                data = np.frombuffer(f.read(), dtype=dtype)
+
+            att_indexes = data.reshape(filedims)
+            
+            mu_map = np.zeros(np.shape(att_indexes))
+
+            for attidx in np.unique(att_indexes):
+                mu_map[att_indexes == attidx] = tools.mu_coef_511keV(attidx)
+                
+            
+            mu_map_img = nib.Nifti2Image(mu_map, np.eye(4))
+            nib.save(mu_map_img, join(self.input_dir, 'mu_map.hdr'))
+            
+            shutil.copy(join(self.input_dir, 'mu_map.img'), join(self.output_dir, 'mu_map.v'))
+            tools.write_interfile_header(join(self.output_dir, 'mu_map.hv'), attmap_dim[2], attmap_pixsize[2],
+                      attmap_dim[0], attmap_pixsize[0],
+                      attmap_dim[1], attmap_pixsize[1])
+        
+        """
+        
+        
+        if self.stir_norm_from_att_map == 1:
+        
+            attmap = nib.load(join('Data', self.params.get("patient_dirname"), self.params.get("att_map")))
+            
+            attmap_data = (attmap.get_fdata()).astype(np.uint8)
+
+            attmap_dim = np.shape(attmap)
+            attmap_pixsize = attmap.header['pixdim'][1:4]
+            
+            mu_map = np.zeros(attmap_dim)
+            
+            for attidx in np.unique(attmap_data):
+                mu_map[attmap_data == attidx] = tools.mu_coef_511keV(attidx)
+            
+            mu_map_img = nib.Nifti1Image(mu_map, np.eye(4))
+            nib.save(mu_map_img, join(self.input_dir, 'mu_map.hdr'))
+            
+            shutil.copy(join(self.input_dir, 'mu_map.img'), join(self.output_dir, 'mu_map.v'))
+            tools.write_interfile_header(join(self.output_dir, 'mu_map.hv'), attmap_dim[0], attmap_pixsize[0],
+                      attmap_dim[1], attmap_pixsize[1],
+                      attmap_dim[2], attmap_pixsize[2])
+        
+        
+        
+        
+        ######THIS WAS FOR .nii.gz [NOT WORKING AT THE MOMENT]:
+        """
+        sinogram_stir = join(self.output_dir, "stir_sinogram.nii.gz")
+        tools.convert_simset_sino_to_stir_nii(my_simset_sino, sinogram_stir)
+        nib.save(nib.load(sinogram_stir), join(self.output_dir, "stir_sinogram.nii"))
+        shutil.copy(sinogram_stir[0:-6] + "nii", sinogram_stir[0:-6] + "s")
+        stir_tools.create_stir_hs_from_detparams(
+            self.scanner, sinogram_stir[0:-6] + "hs"
+        )
+        os.remove(join(self.output_dir, "stir_sinogram.nii"))
+
+        additive_sino_stir = join(self.output_dir, "stir_additivesino.nii.gz")
+        tools.convert_simset_sino_to_stir_nii(additive_sinogram, additive_sino_stir)
+        nib.save(nib.load(additive_sino_stir), join(self.output_dir, "stir_additivesino.nii"))
+        shutil.copy(additive_sino_stir[0:-6] + "nii", additive_sino_stir[0:-6] + "s")
+        stir_tools.create_stir_hs_from_detparams(
+            self.scanner, additive_sino_stir[0:-6] + "hs"
+        )
+        os.remove(join(self.output_dir, "stir_additivesino.nii"))
+
+        att_sino = join(self.input_dir, "attenuationsino.nii.gz")
+        att_stir = join(self.output_dir, "stir_att.nii.gz")
+        tools.convert_simset_sino_to_stir_nii(att_sino, att_stir)
+        nib.save(nib.load(att_stir), join(self.output_dir, "stir_att.nii"))
+        shutil.copy(att_stir[0:-6] + "nii", att_stir[0:-6] + "s")
+        stir_tools.create_stir_hs_from_detparams(self.scanner, att_stir[0:-6] + "hs")
+        os.remove(join(self.output_dir, "stir_att.nii"))
+        """
+        
+        
+        #EDIT IN FUTURE:
         if self.scanner.get("analytical_att_correction") == 1:
             catt_sino = join(self.output_dir, "catt_sinogram.hdr")
             tools.operate_images_analyze(
@@ -547,20 +864,37 @@ class SimSET_Reconstruction(object):
 
     def run_recons(self):
         from src.stir import stir_tools
-
+        
+        start_recons = False
+        
         print("Starting STIR reconstruction")
 
         recons_algorithm = self.scanner.get("recons_type")
         sinogram_stir = join(self.output_dir, "stir_sinogram.hs")
         additive_sino_stir = join(self.output_dir, "stir_additivesino.hs")
         att_stir = join(self.output_dir, "stir_att.hs")
-
-        if any(
-            exists(i) == False for i in [sinogram_stir, additive_sino_stir, att_stir]
-        ):
-            print("Something is not ready for the reconstruction")
+        
+        if self.scanner.get("stir_norm_from_att_map") != 1:
+        
+            if any(
+                exists(i) == False for i in [sinogram_stir, additive_sino_stir, att_stir]
+            ):
+                print("Something is not ready for the reconstruction")
+            else:
+                start_recons = True
+                print("Starting STIR reconstruction")
+        
         else:
-            print("Starting STIR reconstruction")
+            
+            if any(
+                exists(i) == False for i in [sinogram_stir, additive_sino_stir]
+            ):
+                print("Something is not ready for the reconstruction")
+            else:
+                start_recons = True
+                print("Starting STIR reconstruction")
+         
+        if start_recons:
 
             if recons_algorithm == "FBP2D":
                 reconsFile_hdr = stir_tools.FBP2D_recons(

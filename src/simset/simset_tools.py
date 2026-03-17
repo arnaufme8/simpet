@@ -6,6 +6,8 @@ from os.path import join, exists
 import pexpect
 from utils import tools
 
+import nibabel as nib
+
 
 def make_simset_act_table(act_table_factor, my_act_table, log_file=False):
     with open(my_act_table, "w") as f:
@@ -333,7 +335,8 @@ def make_simset_bin(
         f.write("INT     num_e2_bins = 1\n")
         f.write(real + "min_e = " + min_e + "\n")
         f.write(real + "max_e = " + max_e + "\n")
-        f.write("INT     weight_image_type = 2\n")
+        f.write("INT     weight_image_type = 2\n") #BEFORE: 3
+        #f.write("INT     weight_image_type = 2\n") #CAREFUL. CHANGED FOR TOTAL-BODY!!
         f.write("INT     count_image_type	= 2\n")
         f.write("BOOL	 add_to_existing_img = false\n")
         f.write(string + 'weight_image_path = "' + rec_weight_file + '"\n')
@@ -369,7 +372,7 @@ def make_simset_simp_det(scanner_params, output, sim_dir, det_hf=0, log_file=Fal
         tools.log_message(log_file, message, "info")
 
 
-def make_simset_cyl_det(scanner_params, output, sim_dir, det_hf=0, log_file=False):
+def make_simset_cyl_detOLD(scanner_params, output, sim_dir, det_hf=0, log_file=False):
     num_rings = scanner_params.get("num_rings")
     z_crystal_size = scanner_params.get("z_crystal_size")
     axial_fov = scanner_params.get("axial_fov")
@@ -424,6 +427,91 @@ def make_simset_cyl_det(scanner_params, output, sim_dir, det_hf=0, log_file=Fals
                 + "REAL	cyln_layer_outer_radius = %s \n" % cyln_outer_radius
                 + "REAL	cyln_min_z = %s \n" % ring_zmax
                 + "REAL	cyln_max_z = %s \n\n" % gap_zmax
+            )
+
+    new_file.write(
+        "REAL    reference_energy_keV = 511.0 \n"
+        + "REAL    energy_resolution_percentage = %s \n" % energy_resolution
+        + "REAL 	photon_time_fwhm_ns = %s \n" % timing_resolution
+    )
+    if det_hf == 1:
+        new_file.write(
+            'STR     history_file = "' + join(sim_dir, "det_hf.hist" + '"\n')
+        )
+
+    new_file.close()
+
+    if log_file:
+        message = (
+            "Created det_file with:\n"
+            + "Cristal z: %s cm\n" % z_crystal_size
+            + "Gap size: %s cm\n" % gap_z_size
+            + "Ring thickness: %s cm" % (cyln_outer_radius - cyln_inner_radius)
+            + "Energy resolution: %s" % energy_resolution
+            + "Timing resolution: %s" % timing_resolution
+        )
+
+        tools.log_message(log_file, message, "info")
+    
+
+
+def make_simset_cyl_det(scanner_params, output, sim_dir, det_hf=0, log_file=False):
+    num_rings = scanner_params.get("num_rings")
+    z_crystal_size = scanner_params.get("z_crystal_size")
+    axial_fov = scanner_params.get("axial_fov")
+    max_z = axial_fov / 2
+    min_z = -axial_fov / 2
+    
+    
+    gap_z_size = (max_z - min_z - z_crystal_size * num_rings)
+    cyln_inner_radius = scanner_params.get("scanner_radius")
+    cyln_outer_radius = cyln_inner_radius + scanner_params.get("crystal_thickness")
+    energy_resolution = scanner_params.get("energy_resolution")
+    timing_resolution = scanner_params.get("timing_resolution")
+    material = scanner_params.get("simset_material")
+
+    nrings_total = num_rings + 1
+
+    new_file = open(output, "w")
+    new_file.write(
+        "ENUM detector_type = cylindrical \n\n"
+        + "# This detector example has %s axial rings \n"
+        % (num_rings)
+        + "INT	cyln_num_rings = %s \n\n" % nrings_total
+    )
+
+    for i in range(1, num_rings + 1):
+        ring_zmin = min_z + (i - 1) * z_crystal_size #+ (i - 1) * gap_z_size
+        ring_zmax = ring_zmin + z_crystal_size
+        gap_zmax = ring_zmin + z_crystal_size + gap_z_size
+
+        new_file.write(
+            "# RING #%s \n" % i
+            + "# The following defines the ring parameters \n"
+            + "LIST	cyln_ring_info_list = 5 \n"
+            + "INT	cyln_num_layers = 1 \n"
+            + "LIST	cyln_layer_info_list = 4 \n"
+            + "BOOL	cyln_layer_is_active = TRUE \n"
+            + "INT	cyln_layer_material = %s \n" % material
+            + "REAL	cyln_layer_inner_radius = %s \n" % cyln_inner_radius
+            + "REAL	cyln_layer_outer_radius = %s \n" % cyln_outer_radius
+            + "REAL	cyln_min_z = %s \n" % ring_zmin
+            + "REAL	cyln_max_z = %s \n\n" % ring_zmax
+        )
+
+        if i == num_rings:
+            new_file.write(
+                "# GAP #%s \n" % i
+                + "# The following defines the gap parameters \n"
+                + "LIST	cyln_ring_info_list = 5 \n"
+                + "INT	cyln_num_layers = 1 \n"
+                + "LIST	cyln_layer_info_list = 4 \n"
+                + "BOOL	cyln_layer_is_active = FALSE \n"
+                + "INT	cyln_layer_material = 0 \n"
+                + "REAL	cyln_layer_inner_radius = %s \n" % cyln_inner_radius
+                + "REAL	cyln_layer_outer_radius = %s \n" % cyln_outer_radius
+                + "REAL	cyln_min_z = %s \n" % ring_zmax
+                + "REAL	cyln_max_z = %s \n\n" % max_z
             )
 
     new_file.write(
@@ -508,13 +596,22 @@ def process_weights(weights_file, output_dir, scanner, add_randoms=0):
     with open(weights_file, "rb") as in_file:
         with open(trues_file, "wb") as out_file:
             out_file.write(in_file.read()[trues_start:trues_end])
-
-    output = join(output_dir, "trues.hdr")
-    tools.create_analyze_from_imgdata(
+    
+    ############ RESTABLISH IF FAILS:
+    #output = join(output_dir, "trues.hdr")
+    #tools.create_analyze_from_imgdata(
+    #    trues_file, output, nbins, nangles, nslices, 1, 1, 1, "fl"
+    #)
+    #os.remove(trues_file)
+    
+    output = join(output_dir, "trues.nii")
+    #output = join(output_dir, "trues.nii.gz")
+    tools.create_nifti_from_imgdata(
         trues_file, output, nbins, nangles, nslices, 1, 1, 1, "fl"
     )
     os.remove(trues_file)
 
+    
     scatter_start = trues_end
     scatter_end = trues_end + block_size
     scatter_file = join(output_dir, "w2")
@@ -522,13 +619,22 @@ def process_weights(weights_file, output_dir, scanner, add_randoms=0):
     with open(weights_file, "rb") as in_file:
         with open(scatter_file, "wb") as out_file:
             out_file.write(in_file.read()[scatter_start:scatter_end])
-
-    output = join(output_dir, "scatter.hdr")
-    tools.create_analyze_from_imgdata(
+    
+    ############ RESTABLISH IF FAILS:
+    #output = join(output_dir, "scatter.hdr")
+    #tools.create_analyze_from_imgdata(
+    #    scatter_file, output, nbins, nangles, nslices, 1, 1, 1, "fl"
+    #)
+    #os.remove(scatter_file)
+    
+    output = join(output_dir, "scatter.nii")
+    #output = join(output_dir, "scatter.nii.gz")
+    tools.create_nifti_from_imgdata(
         scatter_file, output, nbins, nangles, nslices, 1, 1, 1, "fl"
     )
     os.remove(scatter_file)
-
+    
+    #EDIT IN FUTURE:
     if add_randoms == 1:
         randoms_start = scatter_end
         randoms_end = scatter_end + block_size
@@ -641,15 +747,63 @@ def simset_calcattenuation(
     child.expect("Enter the number of sub-samples*")
     child.sendline(str(nrays))
     child.wait()
+    
+    
+    #RESTABLISH IF FAILS:
+    #CHUNK_SIZE = os.path.getsize(hdr_to_copy[0:-3] + "img")
+    #print(CHUNK_SIZE)
+    #with open(output, "rb") as f:
+    #    chunk = f.read(CHUNK_SIZE)
+    #with open(output + ".img", "wb") as chunk_file:
+    #    chunk_file.write(chunk)
+    #    chunk_file.close()
 
+    #shutil.copy(hdr_to_copy, output + ".hdr")
+    
+    
+    nib.save(nib.load(hdr_to_copy), hdr_to_copy[0:-3] + "hdr") #TRUES AUXILIAR IMAGE
+    #nib.save(nib.load(hdr_to_copy), hdr_to_copy[0:-6] + "hdr") #TRUES AUXILIAR IMAGE
+    
     CHUNK_SIZE = os.path.getsize(hdr_to_copy[0:-3] + "img")
-    print(CHUNK_SIZE)
+    #CHUNK_SIZE = os.path.getsize(hdr_to_copy[0:-6] + "img")
     with open(output, "rb") as f:
         chunk = f.read(CHUNK_SIZE)
     with open(output + ".img", "wb") as chunk_file:
         chunk_file.write(chunk)
         chunk_file.close()
+        
+    
+    #shutil.copy(hdr_to_copy[0:-6] + "hdr", output + ".hdr")
+    shutil.copy(hdr_to_copy[0:-3] + "hdr", output + ".hdr")
+    
+    #nib.save(nib.load(output + ".hdr"), output + ".nii.gz")
+    nib.save(nib.load(output + ".hdr"), output + ".nii")
+    
+    #Remove unnecessary files:
+    #os.remove(hdr_to_copy[0:-6] + "hdr")
+    #os.remove(hdr_to_copy[0:-6] + "img")
+    os.remove(hdr_to_copy[0:-3] + "hdr")
+    os.remove(hdr_to_copy[0:-3] + "img")
+    os.remove(output + ".hdr")
+    os.remove(output + ".img")
+    
+    
+    
+    
+    #NOT WORKING:
+    """
+    #CHUNK_SIZE = os.path.getsize(hdr_to_copy[0:-3] + "nii")
+    CHUNK_SIZE = os.path.getsize(hdr_to_copy[0:-6] + "nii.gz")
+    #print(CHUNK_SIZE)
+    with open(output, "rb") as f:
+        chunk = f.read(CHUNK_SIZE)
+    #with open(output + ".nii", "wb") as chunk_file:
+    with open(output + ".nii.gz", "wb") as chunk_file:
+        chunk_file.write(chunk)
+        chunk_file.close()
 
-    shutil.copy(hdr_to_copy, output + ".hdr")
+    #shutil.copy(hdr_to_copy, output + ".nii")
+    shutil.copy(hdr_to_copy, output + ".nii.gz")
+    """
 
     os.chdir(current_dir)
