@@ -1,0 +1,42 @@
+scanner_name: "Siemens Quadra"
+simset_material: 18 #29 = LYSO? 18 = LSO?
+average_doi: 0.84 #MISSING
+scanner_radius: 41.0
+num_rings: 320 #320
+axial_fov: 106 #106 #15.7
+z_crystal_size: 0.32
+transaxial_crystal_size: 0.32
+crystal_thickness: 2
+energy_resolution: 16 #CHANGE TO 9!!!!!!!!
+num_aa_bins: 252 #440 #? 210, KEEP DISCOVERY #798/2 = 399
+num_td_bins: 344 #440 #? 249, KEEP DISCOVERY
+min_energy_window: 435
+max_energy_window: 585
+coincidence_window: 4.7 #ns
+
+numberOfSubsets: 7
+numberOfIterations: 5 #32
+savingInterval: 5 #8
+analytical_att_correction: 0
+stir_recons_att_corr: 1
+analytic_scatt_corr_factor: 0.15
+stir_scatt_corr_smoothing: 0
+stir_scatt_simulation: 0
+analytic_randoms_corr_factor: 0.2
+stir_randoms_corr_smoothing: 0
+recons_type: "OSEM3D"
+inter_iteration_filter: 0
+subiteration_interval: 4
+x_dir_filter_FWHM: 1.5
+y_dir_filter_FWHM: 1.5
+z_dir_filter_FWHM: 3
+psf_value: 0
+add_noise: 0
+
+max_segment: 85 #319 #85 MAX: 40
+zoomFactor: 0.25 #1
+xyOutputSize: 110  #440 #220  #CHANGE IT TO DOUBLE OR BY FACTOR OR 3
+zOutputSize: 645 #645 #325  #CHANGE IT TO DOUBLE OR BY FACTOR OR 3
+zOutputVoxelSize: 6.6 #1.65 #3.3
+
+stir_norm_from_att_map: 1

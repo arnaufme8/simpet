@@ -36,3 +36,5 @@ zoomFactor: 1.55
 xyOutputSize: 128
 zOutputSize: 47
 zOutputVoxelSize: 3.27
+
+stir_norm_from_att_map: 0 #1 for correcting with STIR, 0 for correcting with SimSET
