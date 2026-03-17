@@ -3,4 +3,4 @@
 	url = https://github.com/UCL/STIR
 [submodule "submodules/simset_simpet"]
 	path = submodules/simset_simpet
-	url = https://github.com/txusser/simset_simpet.git
+	url = https://github.com/arnaufme8/simset_simpet.git
