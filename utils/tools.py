@@ -98,6 +98,66 @@ def copy_analyze(image1, image2=False, dest_dir=False, logfile=False):
         message = 'Error! Not image2 path or dest dir path provided: ' + str(image2) + ', ' + str(dest_dir)
         if logfile: log_message(logfile, message, 'error')
         raise TypeError(message)
+    
+
+def copy_nifti(image1, image2=False, dest_dir=False, logfile=False):
+    """
+    Create a copy of an Analyze format image
+    :param image1: (string) path to the original image
+    :param image2: (string, optional) path to the copy image
+    :param dest_dir: (string, optional) path to the destination folder
+    :return:
+    """
+
+    if image2:
+        if image1[-3:] == 'nii' and image2[-3:] == 'nii':
+            image1_img = image1[0:-3] + 'nii'
+            image2_img = image2[0:-3] + 'nii'
+            shutil.copy(image1_img, image2_img)
+
+            return image2_img
+        
+        elif image1[-6:] == 'nii.gz' and image2[-6:] == 'nii.gz':
+            image1_img = image1[0:-6] + 'nii.gz'
+            image2_img = image2[0:-6] + 'nii.gz'
+            shutil.copy(image1_img, image2_img)
+
+            return image2_img
+        
+        else:
+            message = 'Error! The provided image is not in Nifti format:' + str(image1)
+            if logfile: log_message(logfile, message, 'error')
+            raise TypeError(message)
+
+    elif not image2 and isdir(str(dest_dir)):
+
+        ext = splitext(basename(image1))[1]
+
+        if ext == '.nii':
+            image1_img = image1[0:-3] + 'nii'
+            image2_img = join(dest_dir, basename(image1)[0:-3] + 'nii')
+            shutil.copy(image1_img, image2_img)
+
+            return  image2_img
+        
+        if ext == '.nii.gz':
+            image1_img = image1[0:-6] + 'nii.gz'
+            image2_img = join(dest_dir, basename(image1)[0:-6] + 'nii.gz')
+            shutil.copy(image1_img, image2_img)
+
+            return  image2_img
+        
+        else:
+            message = 'Error! The provided image is not in Nifti format:' + str(image1)
+            if logfile: log_message(logfile, message, 'error')
+            raise TypeError(message)
+    else:
+        message = 'Error! Not image2 path or dest dir path provided: ' + str(image2) + ', ' + str(dest_dir)
+        if logfile: log_message(logfile, message, 'error')
+        raise TypeError(message)
+
+    
+
 
 def create_analyze_from_imgdata(data, out, pix_x, pix_y, pix_z, tx, ty, tz, data_type="fl"):
 
@@ -122,6 +182,60 @@ def create_analyze_from_imgdata(data, out, pix_x, pix_y, pix_z, tx, ty, tz, data
     analyze_img = nib.AnalyzeImage(img_data, hdr1.get_base_affine(), hdr1)
 
     nib.save(analyze_img,out)
+    
+    
+def create_nifti_from_imgdata(data, out, pix_x, pix_y, pix_z, tx, ty, tz, data_type="fl"):
+
+    if data_type == "1b":
+        dtype=np.int8
+    elif data_type == "2b":
+        dtype=np.int16
+    elif data_type == "db":
+        dtype=np.float64
+    else:
+        dtype=np.float32
+
+    hdr1 = nib.Nifti2Header()
+    #hdr1 = nib.Nifti1Header()
+    hdr1.set_data_dtype(dtype)
+    hdr1.set_data_shape((pix_x,pix_y,pix_z))
+    hdr1.set_zooms((tx,ty,tz))
+
+    f = open(data,'rb')
+
+    img_data = hdr1.raw_data_from_fileobj(f)
+
+    nifti_img = nib.Nifti2Image(img_data, hdr1.get_base_affine(), hdr1)
+    #nifti_img = nib.Nifti1Image(img_data, hdr1.get_base_affine(), hdr1)
+
+    nib.save(nifti_img,out)
+    
+
+def create_nifti1_from_imgdata(data, out, pix_x, pix_y, pix_z, tx, ty, tz, data_type="fl"):
+
+    if data_type == "1b":
+        dtype=np.int8
+    elif data_type == "2b":
+        dtype=np.int16
+    elif data_type == "db":
+        dtype=np.float64
+    else:
+        dtype=np.float32
+
+    hdr1 = nib.Nifti1Header()
+    hdr1.set_data_dtype(dtype)
+    hdr1.set_data_shape((pix_x,pix_y,pix_z))
+    hdr1.set_zooms((tx,ty,tz))
+
+    f = open(data,'rb')
+
+    img_data = hdr1.raw_data_from_fileobj(f)
+
+    nifti_img = nib.Nifti1Image(img_data, hdr1.get_base_affine(), hdr1)
+
+    nib.save(nifti_img,out)
+
+
 
 def read_analyze_header(header_file,logfile):
 
@@ -307,6 +421,36 @@ def anything_to_hdr_convert(image, logfile=False, outfile=False ):
             return hdr_header
         else:
             raise TypeError ("Interfile-analyze conversion failed....")
+        
+def convert_hv_to_nii(image, logfile=False, outfile=False):
+        
+    with open(image) as f:
+        lines = f.readlines()
+
+    lines = [x.strip() for x in lines]
+        
+    pixel = [re.compile(f"\!matrix size \[{i}\].*") for i in range(1, 4)]
+    pixel_size = [re.compile(f"scaling factor \(mm.pixel\) \[{i}\].*") for i in range(1, 4)]
+
+    pixel_x = list(filter(pixel[0].match, lines))[0].split()[-1]
+    pixel_size_x = list(filter(pixel_size[0].match, lines))[0].split()[-1]
+    pixel_y = list(filter(pixel[1].match, lines))[0].split()[-1]
+    pixel_size_y = list(filter(pixel_size[1].match, lines))[0].split()[-1]
+    pixel_z = list(filter(pixel[2].match, lines))[0].split()[-1]
+    pixel_size_z = list(filter(pixel_size[2].match, lines))[0].split()[-1]
+        
+    hdr_header = image[0:-2] + "nii" 
+    data_file = image[0:-2] + "v"
+
+    create_nifti1_from_imgdata(data_file,hdr_header,float(pixel_x),float(pixel_y),float(pixel_z),float(pixel_size_x),float(pixel_size_y),float(pixel_size_z))
+        
+    if exists(hdr_header):
+        return hdr_header
+    else:
+        raise TypeError ("Interfile-analyze conversion failed....")
+    
+    
+    
 
 def prepare_input_image(image_hdr, logfile, min_voxel_size=1):
     """
@@ -443,6 +587,52 @@ def operate_single_image(input_image, operation, factor, output_image, logfile):
     analyze_img = nib.AnalyzeImage(data, hdr1.get_base_affine(), hdr1)
     
     nib.save(analyze_img,output_image)
+    
+
+def operate_single_image_nii(input_image, operation, factor, output_image, logfile, check_nans=True):
+    """
+    Given an input image, multiply or divide it by a numerical factor
+    saving the result as output_image
+    :param input_image: image base operation on
+    #:param operation: 1 = multiply, 2 = divide
+    :param operation: 'mult' = multiply, 'div' = divide
+    :param factor: operation factor
+    :param output_image: output image file
+    :return:
+    """
+    
+    img = nib.load(input_image)
+    data = img.get_data()[:,:,:]
+    data = np.nan_to_num(data) #re-added
+    """
+    if check_nans:
+        data = np.nan_to_num(data)
+        #data[np.isnan(data)]=0
+    """
+    if operation == 'mult':
+        #data = data * float(factor)
+        data *= float(factor) #re-added
+    elif operation == 'div':
+        #data = data / float(factor)
+        data /= float(factor)
+    else:
+        message = "Error! Invalid operation: " +str(operation)
+        print(message)
+        log_message(logfile, message, 'error')
+    
+    hdr1 = nib.Nifti2Header()
+    #hdr1 = nib.Nifti1Header()
+    hdr1.set_data_dtype(img.get_data_dtype())
+    hdr1.set_data_shape(img.shape)
+    #hdr1.set_zooms(abs(np.diag(img.affine)))
+    #hdr1.set_zooms(abs(np.diag(img.affine))[0:3])
+    #hdr1.set_zooms(abs(np.diag(img.affine))[0:4])
+    hdr1.set_zooms(abs(np.diag(img.affine))[0:img.ndim])
+
+    nifti_img = nib.Nifti2Image(data, hdr1.get_base_affine(), hdr1)
+    #nifti_img = nib.Nifti1Image(data, hdr1.get_base_affine(), hdr1)
+    
+    nib.save(nifti_img,output_image)
 
 
 def operate_images_analyze(image1, image2, out_image, operation='mult'):
@@ -459,8 +649,8 @@ def operate_images_analyze(image1, image2, out_image, operation='mult'):
 
     # TODO CHECK IF NEGATIVE VALUES NEED TO BE REMOVED
     # Remove NaN and negative values
-    data1 = np.nan_to_num(data1)
-    data2 = np.nan_to_num(data2)
+    #data1 = np.nan_to_num(data1)
+    #data2 = np.nan_to_num(data2)
 
     if operation == 'mult':
         res_data = data1 * data2
@@ -484,6 +674,97 @@ def operate_images_analyze(image1, image2, out_image, operation='mult'):
     analyze_img = nib.AnalyzeImage(res_data, hdr1.get_base_affine(), hdr1)    
 
     nib.save(analyze_img,out_image)
+    
+
+def operate_images_nii(image1, image2, out_image, operation='mult', check_nans=True):
+    """
+    Given the input images, calculate the multiplication image or the ratio between them
+    :param image1: string, path to the first image
+    :param image2: string, path to the second image
+    :param operation: string, multi (default) for multiplication divid for division
+    :param out_image: string (optional), path to the output image
+    :return:
+    """
+    img1, data1 = nib_load(image1)
+    img2, data2 = nib_load(image2)
+    
+    #data1 = np.nan_to_num(data1) #re-added
+    #data2 = np.nan_to_num(data2) #re-added
+    
+    """
+    if check_nans:
+        # TODO CHECK IF NEGATIVE VALUES NEED TO BE REMOVED
+        # Remove NaN and negative values
+        #data1 = np.nan_to_num(data1)
+        #data2 = np.nan_to_num(data2)
+
+        data1[np.isnan(data1)]=0
+        data2[np.isnan(data2)]=0
+    """
+    
+    if operation == 'mult':
+        #res_data = data1 * data2 #re-added
+        data1 *= data2
+    elif operation == 'div':
+        #res_data = data1 / data2
+        data1 /= data2
+    elif operation == 'sum':
+        #res_data = data1 + data2 #re-added
+        data1 += data2
+    elif operation == 'diff':
+        #res_data = data1 - data2
+        data1 -= data2
+    else:
+        message = 'Error! Unknown operation: ' + str(operation)
+        raise TypeError(message)
+
+    hdr1 = nib.Nifti2Header()
+    hdr1.set_data_dtype(img1.get_data_dtype())
+    hdr1.set_data_shape(img1.shape)
+    ##hdr1.set_zooms(abs(np.diag(img1.affine))[0:3])
+    ##hdr1.set_zooms(abs(np.diag(img1.affine))[0:4])
+    hdr1.set_zooms(abs(np.diag(img1.affine))[0:img1.ndim])
+    
+    #nifti_img = nib.Nifti2Image(res_data, hdr1.get_base_affine(), hdr1)   
+    nifti_img = nib.Nifti2Image(data1, hdr1.get_base_affine(), hdr1)  
+
+    nib.save(nifti_img,out_image)
+    
+    
+def operate_sinograms_nii(image1, image2, out_image, operation='mult'):
+    """
+    Given the input images, calculate the multiplication image or the ratio between them
+    :param image1: string, path to the first image
+    :param image2: string, path to the second image
+    :param operation: string, multi (default) for multiplication divid for division
+    :param out_image: string (optional), path to the output image
+    :return:
+    """
+    img1, data1 = nib_load(image1)
+    img2, data2 = nib_load(image2)
+
+    if operation == 'mult':
+        res_data = data1 * data2
+    elif operation == 'div':
+        res_data = data1 / data2
+    elif operation == 'sum':
+        res_data = data1 + data2
+    elif operation == 'diff':
+        res_data = data1 - data2
+    else:
+        message = 'Error! Unknown operation: ' + str(operation)
+        raise TypeError(message)
+
+    hdr1 = nib.Nifti2Header()
+    hdr1.set_data_dtype(img1.get_data_dtype())
+    hdr1.set_data_shape(img1.shape)
+    hdr1.set_zooms(abs(np.diag(img1.affine))[0:img1.ndim])
+    
+    nifti_img = nib.Nifti2Image(res_data, hdr1.get_base_affine(), hdr1)
+
+    nib.save(nifti_img,out_image)
+
+
 
 def smooth_analyze(image,fwhm, output):
 
@@ -492,6 +773,17 @@ def smooth_analyze(image,fwhm, output):
     img =nib.load(image)
     smoothed=nibproc.smooth_image(img,fwhm,out_class=nib.AnalyzeImage)
     nib.save(smoothed,output)
+
+
+def smooth_nifti(image,fwhm, output):
+
+    from nibabel import processing as nibproc
+
+    img =nib.load(image)
+    smoothed=nibproc.smooth_image(img,fwhm,out_class=nib.Nifti2Image)
+    #smoothed=nibproc.smooth_image(img,fwhm,out_class=nib.Nifti1Image)
+    nib.save(smoothed,output)
+
 
 def log_message(logfile, message, mode='info'):
     """"
@@ -686,10 +978,285 @@ def convert_simset_sino_to_stir(input_img, output=False):
 
     if not output:
         output = input_img [0:-4] + '_stir.hdr'
+        
+    (stir_img_data_flip_x.astype(np.float32)).tofile(output[0:-4] + '.bin') #ADDED, DELETE.
   
     nib.save(stir_img,output)
     
+#Re-added: WARNING! THIS NEEDS TO BE REVISED. BUT THIS IS THE GOOD ONE (INITIAL)
+"""
+def convert_simset_sino_to_stir_nii(input_img, output=False):
+
+    ## To be continued....
+
+    simset_img = nib.load(input_img)
+    simset_img_data = simset_img.get_fdata()
+    shape = simset_img_data.shape
+
+    n_slices = shape[2]
+    nrings = np.sqrt(n_slices)
+    n_x = shape[0]
+
+    input_definition = []
+
+    for i in range(n_slices):
+        
+        ring1,ring2 = divmod(i,nrings)
+        segment = ring1 - ring2
+        slice_def = [i, ring1, ring2, segment]
+        input_definition.append(slice_def)
+
+    output_definition = sorted(input_definition, key=itemgetter(3))
+    stir_img_data = np.empty(shape, dtype=float, order='C')
+    stir_img_data_flip_x = np.empty(shape, dtype=float, order='C')
+
+    for i in range(n_slices):
+
+        output_index = output_definition[i][0]
+        input_slice = simset_img_data[:,:,output_index]
+        stir_img_data[:,:,i] = input_slice
+
+    #THIS FLIP IS NOT NECESSARY! [MAYBE IT IS]:
+    for j in range(n_x):
+        stir_img_data_flip_x[j,:,:] = stir_img_data[n_x-1-j, :, :]
+        
+    #stir_img = nib.AnalyzeImage(stir_img_data_flip_x, simset_img.affine, simset_img.header)
+    #stir_img = nib.Nifti2Image(stir_img_data, simset_img.affine, simset_img.header)
+    stir_img = nib.Nifti2Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
+    #stir_img = nib.Nifti1Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
+
+    if not output:
+        #output = input_img [0:-4] + '_stir.nii'
+        output = input_img [0:-7] + '_stir.nii.gz'
     
+    #nib.save(stir_img,output[0:-4] + '.nii')
+    #nib.save(stir_img,output[0:-4] + '.hdr')
+    #nib.save(stir_img,output[0:-7] + '.hdr')
+    #nib.save(stir_img, output[0:-7] + '.nii.gz')
+    nib.save(stir_img, output)
+"""
+
+"""
+def convert_simset_sino_to_stir_nii(input_img, output=False):
+
+    simset_img = nib.load(input_img)
+    simset_img_data = simset_img.get_fdata()
+    shape = simset_img_data.shape
+
+    n_slices = shape[2]
+    nrings = np.sqrt(n_slices)
+    n_x = shape[0]
+
+    input_definition = []
+
+    for i in range(n_slices):
+        
+        ring1,ring2 = divmod(i,nrings)
+        segment = ring1 - ring2
+        slice_def = [i, ring1, ring2, segment]
+        input_definition.append(slice_def)
+        
+    indices = np.arange(n_slices).astype(int)
+    newring1 = indices // nrings
+    newring2 = indices % nrings
+    newsegment = newring1 - newring2
+
+    newinput_definition = np.column_stack([indices, newring1, newring2, newsegment])
+    #newoutput_definition = newinput_definition[np.argsort(newinput_definition[:, 3])]
+    #newoutput_definition = newoutput_definition.tolist()
+    newoutput_definition = sorted(newinput_definition, key=itemgetter(3))
+    
+    
+    #print("OLD INPUT DEFINITION:", input_definition)
+    #print("\n\n\n\n")
+    #print("NEW INPUT DEFINITION:", newinput_definition)
+
+    output_definition = sorted(input_definition, key=itemgetter(3))
+    stir_img_data = np.empty(shape, dtype=float, order='C')
+    stir_img_data_flip_x = np.empty(shape, dtype=float, order='C')
+    
+    print("OLD INPUT DEFINITION:", output_definition)
+    print("\n\n\n\n")
+    print("NEW INPUT DEFINITION:", newoutput_definition)
+
+
+    for i in range(n_slices):
+
+        output_index = output_definition[i][0]
+        input_slice = simset_img_data[:,:,output_index]
+        stir_img_data[:,:,i] = input_slice
+
+    stir_img_data_flip_x = stir_img_data[::-1, :, :]
+
+    stir_img = nib.Nifti2Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
+
+    if not output:
+        output = input_img [0:-7] + '_stir.nii.gz'
+    
+    nib.save(stir_img, output)
+"""
+
+
+
+def convert_simset_sino_to_stir_nii(input_img, output=False):
+
+    simset_img = nib.load(input_img)
+    simset_img_data = simset_img.get_fdata()
+    shape = simset_img_data.shape
+
+    n_slices = shape[2]
+    nrings = int(np.sqrt(n_slices))   # assuming perfect square
+    n_x = shape[0]
+
+    # Build definition table
+    indices = np.arange(n_slices)
+    ring1 = indices // nrings
+    ring2 = indices % nrings
+    segment = ring1 - ring2
+
+    input_definition = np.column_stack([indices, ring1, ring2, segment])
+
+    # Sort by segment
+    #output_definition = input_definition[np.argsort(input_definition[:, 3])] #not working.
+    output_definition = sorted(input_definition, key=itemgetter(3))
+    output_definition = np.array(output_definition)
+    
+    # Reorder slices in one vectorized step
+    order = output_definition[:, 0].astype(int)
+    stir_img_data = simset_img_data[:, :, order]
+
+    # Flip X dimension
+    stir_img_data_flip_x = stir_img_data[::-1, :, :]
+
+    # Save
+    stir_img = nib.Nifti2Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
+
+    if not output:
+        output = input_img[:-7] + '_stir.nii.gz'
+
+    nib.save(stir_img, output)
+
+
+
+
+"""
+def convert_simset_sino_to_stir_nii(input_img, output=False):
+
+    simset_img = nib.load(input_img)
+    simset_img_data = simset_img.get_data() #simset_img.get_fdata()
+    shape = simset_img_data.shape
+
+    n_slices = shape[2]
+    nrings = int(np.sqrt(n_slices))
+
+    indices = np.arange(n_slices)
+    ring1 = indices // nrings
+    ring2 = indices % nrings
+    segment = ring1 - ring2
+
+    order = np.argsort(segment)
+
+    stir_img_data = simset_img_data[:, :, order]
+    stir_img_data = stir_img_data[::-1, :, :] #flip_x
+
+    stir_img = nib.Nifti2Image(stir_img_data, simset_img.affine, simset_img.header)
+
+    if not output:
+        output = input_img[:-7] + '_stir.nii.gz'
+
+    nib.save(stir_img, output)
+"""
+
+
+"""
+def convert_simset_sino_to_stir_nii(input_img, output):
+
+    simset_img = nib.load(input_img)
+    data = simset_img.dataobj  # memory-mapped
+    
+    print("Check 1")
+    
+    shape = simset_img.shape
+    n_slices = shape[2]
+    nrings = int(np.sqrt(n_slices))
+
+    indices = np.arange(n_slices)
+    ring1 = indices // nrings
+    ring2 = indices % nrings
+    segment = ring1 - ring2
+    order = np.argsort(segment)
+    
+    print("Check 2")
+    
+    # Preallocate output (float32 recommended if safe)
+    out_data = np.empty(shape, dtype=data.dtype)
+
+    for new_z, old_z in enumerate(order):
+        out_data[:, :, new_z] = data[:, :, old_z]
+        
+    print("Check 3")
+
+    # Flip in-place
+    out_data[:] = out_data[::-1, :, :]
+    
+    print("Check 4")
+
+    stir_img = nib.Nifti2Image(out_data, simset_img.affine, simset_img.header)
+    nib.save(stir_img, output)
+    print("Check 5")
+"""
+
+
+def copy_sinogram_stir_to_output(input_img, output_img):
+    
+    
+    simset_sino = nib.load(input_img)
+    
+    if input_img[-7:] == '.nii.gz':
+        nib.save(simset_sino, input_img[0:-7] + '.hdr')
+        shutil.copy(input_img[0:-6] + "img", output_img)
+        os.remove(input_img[0:-6] + "img")
+        os.remove(input_img[0:-6] + "hdr")
+        
+    elif input_img[-4:] == '.nii':
+        nib.save(simset_sino, input_img[0:-4] + '.hdr')
+        shutil.copy(input_img[0:-3] + "img", output_img)
+        os.remove(input_img[0:-3] + "img")
+        os.remove(input_img[0:-3] + "hdr")
+        
+    else:
+        print("Image is not in the NifTi format!")
+    
+    
+    #Re-added:
+    #shutil.copy(input_img[0:-3] + "nii", output_img)
+    #os.remove(input_img[0:-3] + "nii")
+    #os.remove(input_img[0:-3] + "hdr")
+    
+    #shutil.copy(input_img[0:-6] + "img", output_img)
+    #os.remove(input_img[0:-6] + "img")
+    #os.remove(input_img[0:-6] + "hdr")
+    
+    
+def copy_reduced_sinogram_stir_to_output(input_img, output_img, nrings, max_segment):
+    
+    simset_sino = nib.load(input_img)
+    sino_dataobj = simset_sino.dataobj
+    
+    init_idx = int(np.sum([i for i in range(1, nrings-max_segment)])) #+1)]))
+    final_idx = nrings*nrings - init_idx 
+    
+    sino_reduced = sino_dataobj[..., init_idx:final_idx].astype(sino_dataobj.dtype)
+    
+    sino_reduced_nii = nib.Nifti2Image(sino_reduced, simset_sino.affine)
+    nib.save(sino_reduced_nii, input_img[0:-7] + '.hdr')
+    
+    shutil.copy(input_img[0:-6] + "img", output_img)
+    os.remove(input_img[0:-6] + "img")
+    os.remove(input_img[0:-6] + "hdr")
+
+
+
 def resampleXYvoxelSizes(image_hdr, xyVoxelSize, log_file):
     img = nib.load(image_hdr)
     z_VoxelSize =img.header['pixdim'][3]
@@ -1009,3 +1576,17 @@ def fix_4d_data(data):
         return data
     else:
         return data[:, :, :, 0]
+    
+
+def mu_coef_511keV(tissue_n):
+    rows_per_tissue = 1000
+
+    start = tissue_n * (rows_per_tissue + 1)
+    end   = start + rows_per_tissue
+    
+    PHG_TABLE_PATH = "include/SimSET/2.9.2/phg.data/phg_att_table"
+    data = np.loadtxt(PHG_TABLE_PATH, skiprows=2+start, max_rows=rows_per_tissue)
+
+    mu = data[510,1]
+    
+    return mu
