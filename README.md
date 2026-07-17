@@ -316,11 +316,13 @@ See [SimSET](https://depts.washington.edu/simset/html/simset_main.html) document
 
 - Jesús Silva-Rodríguez
 - Pablo Aguiar
-- Aida Ninyerola-Baizan
+- Aida Niñerola-Baizán
 - Jeremiah Poveda
 - Francisco Javier López-González
 - Nikos Efthimiou
-- Arnau Farre
+- Arnau Farré-Melero
+- Claudia Dominguez-Borrero
+
 
 # References
 
