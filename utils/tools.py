@@ -289,6 +289,44 @@ def write_interfile_header(header_file,matrix_size_x,pixel_size_x, matrix_size_y
     fheader_hv.write("!END OF INTERFILE :=\n")
 
     fheader_hv.close()
+    
+def write_interfile_header_mu(header_file,matrix_size_x,pixel_size_x, matrix_size_y,pixel_size_y, matrix_size_z,pixel_size_z, offset_z=None):
+
+    image_v = os.path.basename(header_file)[0:-2] + "v"
+    fheader_hv = open(header_file, "w")
+
+    offset_x = matrix_size_x/2*pixel_size_x + 0.5*pixel_size_x
+    offset_y = matrix_size_y/2*pixel_size_y + 0.5*pixel_size_y
+
+    fheader_hv.write("!INTERFILE  :=\n")
+    fheader_hv.write("name of data file := %s\n" % image_v)
+    fheader_hv.write("!GENERAL DATA :=\n")
+    fheader_hv.write("!GENERAL IMAGE DATA :=\n")
+    fheader_hv.write("!type of data := PET\n")
+    fheader_hv.write("imagedata byte order := LITTLEENDIAN\n")
+    fheader_hv.write("!PET STUDY (General) :=\n")
+    fheader_hv.write("!PET data type := Image\n")
+    fheader_hv.write("process status := Reconstructed\n")
+    fheader_hv.write("!number format := float\n")
+    fheader_hv.write("!number of bytes per pixel := 4\n")
+    fheader_hv.write("number of dimensions := 3\n")
+    fheader_hv.write("matrix axis label [1] := x\n")
+    fheader_hv.write("!matrix size [1] := %s\n" % matrix_size_x)
+    fheader_hv.write("scaling factor (mm/pixel) [1] := %s\n" % pixel_size_x)
+    fheader_hv.write("matrix axis label [2] := y\n")
+    fheader_hv.write("!matrix size [2] := %s\n" % matrix_size_y)
+    fheader_hv.write("scaling factor (mm/pixel) [2] := %s\n" % pixel_size_y)
+    fheader_hv.write("matrix axis label [3] := z\n")
+    fheader_hv.write("!matrix size [3] := %s\n" % matrix_size_z)
+    fheader_hv.write("scaling factor (mm/pixel) [3] := %s\n" % pixel_size_z)
+    
+    if offset_z != None:
+        fheader_hv.write("first pixel offset (mm) [3] := %s\n" % offset_z)
+        
+    fheader_hv.write("number of time frames := 1\n")
+    fheader_hv.write("!END OF INTERFILE :=\n")
+
+    fheader_hv.close()
 
 def nii_analyze_convert(image, logfile=False, outfile=False):
     """
@@ -603,9 +641,9 @@ def operate_single_image_nii(input_image, operation, factor, output_image, logfi
     
     img = nib.load(input_image)
     data = img.get_data()[:,:,:]
-    data = np.nan_to_num(data) #re-added
+    #data = np.nan_to_num(data) #re-added
     """
-    if check_nans:
+    if check_nans: #TODO SEE WHAT HAPPENS TO THIS
         data = np.nan_to_num(data)
         #data[np.isnan(data)]=0
     """
@@ -983,14 +1021,11 @@ def convert_simset_sino_to_stir(input_img, output=False):
   
     nib.save(stir_img,output)
     
-#Re-added: WARNING! THIS NEEDS TO BE REVISED. BUT THIS IS THE GOOD ONE (INITIAL)
-"""
+
 def convert_simset_sino_to_stir_nii(input_img, output=False):
 
-    ## To be continued....
-
     simset_img = nib.load(input_img)
-    simset_img_data = simset_img.get_fdata()
+    simset_img_data = simset_img.get_fdata(dtype=np.float32)
     shape = simset_img_data.shape
 
     n_slices = shape[2]
@@ -1007,8 +1042,8 @@ def convert_simset_sino_to_stir_nii(input_img, output=False):
         input_definition.append(slice_def)
 
     output_definition = sorted(input_definition, key=itemgetter(3))
-    stir_img_data = np.empty(shape, dtype=float, order='C')
-    stir_img_data_flip_x = np.empty(shape, dtype=float, order='C')
+    stir_img_data = np.empty(shape, dtype=np.float32, order='C')
+    #stir_img_data_flip_x = np.empty(shape, dtype=np.float32, order='C')
 
     for i in range(n_slices):
 
@@ -1016,92 +1051,36 @@ def convert_simset_sino_to_stir_nii(input_img, output=False):
         input_slice = simset_img_data[:,:,output_index]
         stir_img_data[:,:,i] = input_slice
 
-    #THIS FLIP IS NOT NECESSARY! [MAYBE IT IS]:
-    for j in range(n_x):
-        stir_img_data_flip_x[j,:,:] = stir_img_data[n_x-1-j, :, :]
+    #for j in range(n_x):
+    #    stir_img_data_flip_x[j,:,:] = stir_img_data[n_x-1-j, :, :]
+    
+    #WARNING WARNING WARNING: WE COMMENT THAT FOR TESTING, MAY NEED TO COME BACK!
+    #NOTE: POTENTIALLY, WE NEED TO FLIP IN Y. (if so, merge flips)
+    #NOTE: POTENTIALLY z IS ALSO FLIPPED RESPECT TO ATT BUT THEN WE NEED TO CHANGE SEGMENT SIGNS AS WELL!
+    
+    #stir_img_data_flip_x = stir_img_data[::-1,:,:]
+    #stir_img_data_flip_x = stir_img_data_flip_x[:,::-1,:]
+    stir_img_data_flip = stir_img_data[::-1,::-1,:] #WARNING: THIS IS TEMPORAL
+    #stir_img_data_flip = stir_img_data[::-1,::-1,::-1] #WARNING: THIS IS TEMPORAL
+    #stir_img_data_flip_x = stir_img_data
         
-    #stir_img = nib.AnalyzeImage(stir_img_data_flip_x, simset_img.affine, simset_img.header)
-    #stir_img = nib.Nifti2Image(stir_img_data, simset_img.affine, simset_img.header)
-    stir_img = nib.Nifti2Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
-    #stir_img = nib.Nifti1Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
+    #stir_img = nib.AnalyzeImage(stir_img_data, simset_img.affine, simset_img.header)
+    #stir_img = nib.Nifti2Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
+    stir_img = nib.Nifti2Image(stir_img_data_flip, simset_img.affine, simset_img.header)
 
     if not output:
-        #output = input_img [0:-4] + '_stir.nii'
-        output = input_img [0:-7] + '_stir.nii.gz'
+        output = input_img [0:-4] + '_stir.nii'
     
-    #nib.save(stir_img,output[0:-4] + '.nii')
-    #nib.save(stir_img,output[0:-4] + '.hdr')
-    #nib.save(stir_img,output[0:-7] + '.hdr')
-    #nib.save(stir_img, output[0:-7] + '.nii.gz')
-    nib.save(stir_img, output)
-"""
+    nib.save(stir_img,output)
 
-"""
+
+
+
+""" #WARNING: THIS WAS CORRECT. BUT HAS BEEN REMOVED TO ENSURE ORDER IN SINOGRAMS IS CORRECT.
 def convert_simset_sino_to_stir_nii(input_img, output=False):
 
     simset_img = nib.load(input_img)
-    simset_img_data = simset_img.get_fdata()
-    shape = simset_img_data.shape
-
-    n_slices = shape[2]
-    nrings = np.sqrt(n_slices)
-    n_x = shape[0]
-
-    input_definition = []
-
-    for i in range(n_slices):
-        
-        ring1,ring2 = divmod(i,nrings)
-        segment = ring1 - ring2
-        slice_def = [i, ring1, ring2, segment]
-        input_definition.append(slice_def)
-        
-    indices = np.arange(n_slices).astype(int)
-    newring1 = indices // nrings
-    newring2 = indices % nrings
-    newsegment = newring1 - newring2
-
-    newinput_definition = np.column_stack([indices, newring1, newring2, newsegment])
-    #newoutput_definition = newinput_definition[np.argsort(newinput_definition[:, 3])]
-    #newoutput_definition = newoutput_definition.tolist()
-    newoutput_definition = sorted(newinput_definition, key=itemgetter(3))
-    
-    
-    #print("OLD INPUT DEFINITION:", input_definition)
-    #print("\n\n\n\n")
-    #print("NEW INPUT DEFINITION:", newinput_definition)
-
-    output_definition = sorted(input_definition, key=itemgetter(3))
-    stir_img_data = np.empty(shape, dtype=float, order='C')
-    stir_img_data_flip_x = np.empty(shape, dtype=float, order='C')
-    
-    print("OLD INPUT DEFINITION:", output_definition)
-    print("\n\n\n\n")
-    print("NEW INPUT DEFINITION:", newoutput_definition)
-
-
-    for i in range(n_slices):
-
-        output_index = output_definition[i][0]
-        input_slice = simset_img_data[:,:,output_index]
-        stir_img_data[:,:,i] = input_slice
-
-    stir_img_data_flip_x = stir_img_data[::-1, :, :]
-
-    stir_img = nib.Nifti2Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
-
-    if not output:
-        output = input_img [0:-7] + '_stir.nii.gz'
-    
-    nib.save(stir_img, output)
-"""
-
-
-
-def convert_simset_sino_to_stir_nii(input_img, output=False):
-
-    simset_img = nib.load(input_img)
-    simset_img_data = simset_img.get_fdata()
+    simset_img_data = simset_img.get_fdata(dtype=np.float32) #.astype(np.float32) #WARNING! CHANGE DATA TYPE HERE (TO FLOAT32?)
     shape = simset_img_data.shape
 
     n_slices = shape[2]
@@ -1135,7 +1114,7 @@ def convert_simset_sino_to_stir_nii(input_img, output=False):
         output = input_img[:-7] + '_stir.nii.gz'
 
     nib.save(stir_img, output)
-
+"""
 
 
 
@@ -1237,7 +1216,8 @@ def copy_sinogram_stir_to_output(input_img, output_img):
     #os.remove(input_img[0:-6] + "img")
     #os.remove(input_img[0:-6] + "hdr")
     
-    
+
+#NOTE: THIS FUNCTION MAY BE DELETED IN THE FUTURE...
 def copy_reduced_sinogram_stir_to_output(input_img, output_img, nrings, max_segment):
     
     simset_sino = nib.load(input_img)
@@ -1249,11 +1229,11 @@ def copy_reduced_sinogram_stir_to_output(input_img, output_img, nrings, max_segm
     sino_reduced = sino_dataobj[..., init_idx:final_idx].astype(sino_dataobj.dtype)
     
     sino_reduced_nii = nib.Nifti2Image(sino_reduced, simset_sino.affine)
-    nib.save(sino_reduced_nii, input_img[0:-7] + '.hdr')
+    nib.save(sino_reduced_nii, input_img[0:-4] + '.hdr')
     
-    shutil.copy(input_img[0:-6] + "img", output_img)
-    os.remove(input_img[0:-6] + "img")
-    os.remove(input_img[0:-6] + "hdr")
+    shutil.copy(input_img[0:-3] + "img", output_img)
+    os.remove(input_img[0:-3] + "img")
+    os.remove(input_img[0:-3] + "hdr")
 
 
 
@@ -1590,3 +1570,47 @@ def mu_coef_511keV(tissue_n):
     mu = data[510,1]
     
     return mu
+
+
+def write_fwdproj_parfile(output_path): #TODO: ADD NRAY ARGUMENT! ORIGINAL WAS 1, POTENTIALLY 5.
+    content = """Forward Projector parameters:=
+   type := Matrix
+   Forward projector Using Matrix Parameters :=
+      Matrix type := Ray Tracing
+         Ray tracing matrix parameters :=
+         number of rays in tangential direction to trace for each bin := 5
+         End Ray tracing matrix parameters :=
+      End Forward Projector Using Matrix Parameters :=
+End:=
+"""
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def flip_rec_nifti(input_path, output_path=None):
+
+    img = nib.load(input_path)
+    data = np.asanyarray(img.dataobj)
+
+    # Flip data along axis 0
+    flipped_data = np.flip(data, axis=0)
+
+    # Fix affine: NOTE at the moment seems to not be necessary to change affine.
+    affine = img.affine.copy()
+    #affine[0, :] *= -1
+    #affine[:3, 3] += img.affine[:3, 0] * (data.shape[0] - 1)
+
+    # Create new image
+    new_img = nib.Nifti1Image(flipped_data, affine, img.header)
+
+    # Save if path provided
+    if output_path is None:
+        base, ext = os.path.splitext(input_path)
+        if ext == ".gz":  # handle .nii.gz
+            base, ext2 = os.path.splitext(base)
+            ext = ext2 + ext
+        output_path = base + "_flipped" + ext
+
+    nib.save(new_img, output_path)
+
+    return output_path
