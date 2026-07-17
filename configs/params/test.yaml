@@ -1,22 +1,24 @@
 defaults:
- - scanner: discovery_st
+ - scanner: discovery_st #siemens_quadra #discovery_st
 
 simulation_environment: 0
 sim_type: "SimSET"
-do_simulation: 1
+do_simulation: 0 #IMPORTANT: REMEMBER TO 0 IF ONLY RECONS
 do_reconstruction: 1
-divisions: 2
+divisions: 28 #5 #1
 model_type: "cylindrical"
-patient_dirname: "test_image"
-act_map: "act.hdr"
-att_map: "att.hdr"
-output_dir: "test_image"
-center_slice: 7
-total_dose: 0.1
-simulation_time: 30
-sampling_photons: 0
+patient_dirname: "NEMA_Resolution_Phantoms_Discovery_3sources" #"NEMA_IEC_Body_Discovery" #"NEMA_Resolution_Phantoms_Discovery_3sources" #"NEMA_Resolution_Phantoms_Quadra_3sources" #"NEMA_IEC_Body_Quadra" #"test_brain_resampled" #"NEMA_IEC_Body_Quadra" #"NEMA_Resolution_Phantoms_Quadra_3sources" #"NEMA_Resolution_Phantoms_QuadraSTIR" #"NEMA_IEC_Body_QuadraSTIR"
+act_map: "act.nii.gz"
+att_map: "att.nii.gz"
+output_dir: "NEMA_Resolution_Phantoms_Discovery_3sComparison" #"NEMA_IEC_Body_Discovery_sinos" #"NEMA_Resolution_Phantoms_Discovery_3sComparison" #"NEMA_Resolution_Phantoms_Quadra_3sComparison" #"NEMA_IEC_Body_Quadra_NoGap" #"test_brain_listmode7" #"test_brain4" #"NEMA_IEC_Body_Quadra_thincrystal" #"NEMA_Resolution_Phantoms_Quadra_3sources" #"NEMA_Resolution_Phantoms_QuadraSTIR_aluminium" #"NEMA_IEC_Body_QuadraSTIR"
+center_slice: 0
+total_dose: 1.5 #1.5 #0.1 #0.75 #0.03 #0.01 #1 #1.5 #Sens: 0.1 #SR: 0.06 #0.3 #1 #0.1 #0.5 #1 #0.5 #1.5 #0.01 #1.5 #1.5 #0.1 #1.5
+simulation_time: 120 #120 #60 #90 #120 #20 #150 #600 #IQ long: 600 #Sens: 120 #SR: 60 #60 #30 #60 #20 #60 #1 #60 #60 #1 #60 #30
+sampling_photons: 2000000 #2000000 #100000 #1000 #2000000 #2000000 #1000000 #2000000 #2000000 #2000000 #1000000
 photons: 0
-add_randoms: 1
-phglistmode: 0
-detlistmode: 1
+add_randoms: 0 #0 #1
+
+listmode: True #ADDED. PROPOSAL: to unify both listmodes to only the necessary.
+phglistmode: 1 #0 #ACTIVATE IF listmode. 
+detlistmode: 0
 maximumIteration: 1
