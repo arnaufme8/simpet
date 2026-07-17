@@ -285,7 +285,7 @@ def make_simset_phg(
 
 
 def make_simset_bin(
-    config, output_file, simulation_dir, scanner, add_randoms=False, log_file=False
+    config, output_file, simulation_dir, scanner, add_randoms=False, log_file=False, list_mode=False
 ):
     stir_identifier = "# Hello, I am a SimSET BIN file!\n"
 
@@ -335,11 +335,14 @@ def make_simset_bin(
         f.write("INT     num_e2_bins = 1\n")
         f.write(real + "min_e = " + min_e + "\n")
         f.write(real + "max_e = " + max_e + "\n")
-        f.write("INT     weight_image_type = 2\n") #BEFORE: 3
+        f.write("INT     weight_image_type = 2\n") #BEFORE: 3. WARNING: WORKS WITH 2. CHANGED TO 1 JUST TO TRY WHAT HAPPENS.
         #f.write("INT     weight_image_type = 2\n") #CAREFUL. CHANGED FOR TOTAL-BODY!!
-        f.write("INT     count_image_type	= 2\n")
+        f.write("INT     count_image_type	= 2\n") #WARNING! WORKS WITH 2. CHANGED TO 1 JUST TO TRY WHAT HAPPENS.
         f.write("BOOL	 add_to_existing_img = false\n")
-        f.write(string + 'weight_image_path = "' + rec_weight_file + '"\n')
+        f.write("BOOL	 sum_according_to_type = true\n") #WARNING: ADDED FOR TOTAL-BODY. DELETE IF DETECTING STRANGE BEHAVIOUR.
+        
+        if list_mode == False: #Uses the param if no listmode is used. Otherwise does not write weights (RAM saving).
+            f.write(string + 'weight_image_path = "' + rec_weight_file + '"\n') #WARNING: REMOVED JUST FOR TESTING. HAS TO BE THERE.
 
     f.close()
 
@@ -372,7 +375,7 @@ def make_simset_simp_det(scanner_params, output, sim_dir, det_hf=0, log_file=Fal
         tools.log_message(log_file, message, "info")
 
 
-def make_simset_cyl_detOLD(scanner_params, output, sim_dir, det_hf=0, log_file=False):
+def make_simset_cyl_det(scanner_params, output, sim_dir, det_hf=0, log_file=False):
     num_rings = scanner_params.get("num_rings")
     z_crystal_size = scanner_params.get("z_crystal_size")
     axial_fov = scanner_params.get("axial_fov")
@@ -422,7 +425,7 @@ def make_simset_cyl_detOLD(scanner_params, output, sim_dir, det_hf=0, log_file=F
                 + "INT	cyln_num_layers = 1 \n"
                 + "LIST	cyln_layer_info_list = 4 \n"
                 + "BOOL	cyln_layer_is_active = FALSE \n"
-                + "INT	cyln_layer_material = 0 \n"
+                + "INT	cyln_layer_material = 0 \n" #WARNING: WE TRIED ALUMINIUM HERE (20) AND LEAD (8), did not work. RETURN TO AIR (0).
                 + "REAL	cyln_layer_inner_radius = %s \n" % cyln_inner_radius
                 + "REAL	cyln_layer_outer_radius = %s \n" % cyln_outer_radius
                 + "REAL	cyln_min_z = %s \n" % ring_zmax
@@ -454,7 +457,7 @@ def make_simset_cyl_detOLD(scanner_params, output, sim_dir, det_hf=0, log_file=F
         tools.log_message(log_file, message, "info")
     
 
-
+""" #maintain just in case...
 def make_simset_cyl_det(scanner_params, output, sim_dir, det_hf=0, log_file=False):
     num_rings = scanner_params.get("num_rings")
     z_crystal_size = scanner_params.get("z_crystal_size")
@@ -537,7 +540,7 @@ def make_simset_cyl_det(scanner_params, output, sim_dir, det_hf=0, log_file=Fals
         )
 
         tools.log_message(log_file, message, "info")
-
+"""
 
 def make_index_file(simulation_dir, simset_dir, log_file=False):
     output = join(simulation_dir, "index_file.log")
@@ -592,20 +595,22 @@ def process_weights(weights_file, output_dir, scanner, add_randoms=0):
     trues_start = Simset_offset
     trues_end = Simset_offset + block_size
     trues_file = join(output_dir, "w1")
-
+    
+    #WARNING: THIS IS THE OLD CODE (READS FULL FILE):
+    #with open(weights_file, "rb") as in_file:
+    #    with open(trues_file, "wb") as out_file:
+    #        out_file.write(in_file.read()[trues_start:trues_end])
+            
+    #TODO: CHECK IF THIS WORKS (READS ONLY PER CHUNKS, USEFUL FOR TOTAL-BODY):
     with open(weights_file, "rb") as in_file:
         with open(trues_file, "wb") as out_file:
-            out_file.write(in_file.read()[trues_start:trues_end])
+            in_file.seek(trues_start)
+            out_file.write(in_file.read(block_size))
     
-    ############ RESTABLISH IF FAILS:
-    #output = join(output_dir, "trues.hdr")
-    #tools.create_analyze_from_imgdata(
-    #    trues_file, output, nbins, nangles, nslices, 1, 1, 1, "fl"
-    #)
-    #os.remove(trues_file)
     
     output = join(output_dir, "trues.nii")
     #output = join(output_dir, "trues.nii.gz")
+
     tools.create_nifti_from_imgdata(
         trues_file, output, nbins, nangles, nslices, 1, 1, 1, "fl"
     )
@@ -615,17 +620,17 @@ def process_weights(weights_file, output_dir, scanner, add_randoms=0):
     scatter_start = trues_end
     scatter_end = trues_end + block_size
     scatter_file = join(output_dir, "w2")
-
+    
+    #WARNING: THIS IS THE OLD CODE (READS FULL FILE):
+    #with open(weights_file, "rb") as in_file:
+    #    with open(scatter_file, "wb") as out_file:
+    #        out_file.write(in_file.read()[scatter_start:scatter_end])
+    
+    #TODO: CHECK IF THIS WORKS (READS ONLY PER CHUNKS, USEFUL FOR TOTAL-BODY):
     with open(weights_file, "rb") as in_file:
         with open(scatter_file, "wb") as out_file:
-            out_file.write(in_file.read()[scatter_start:scatter_end])
-    
-    ############ RESTABLISH IF FAILS:
-    #output = join(output_dir, "scatter.hdr")
-    #tools.create_analyze_from_imgdata(
-    #    scatter_file, output, nbins, nangles, nslices, 1, 1, 1, "fl"
-    #)
-    #os.remove(scatter_file)
+            in_file.seek(scatter_start)
+            out_file.write(in_file.read(block_size))
     
     output = join(output_dir, "scatter.nii")
     #output = join(output_dir, "scatter.nii.gz")
@@ -634,22 +639,29 @@ def process_weights(weights_file, output_dir, scanner, add_randoms=0):
     )
     os.remove(scatter_file)
     
-    #EDIT IN FUTURE:
+    #SHOULD CHECK IF THIS WORKS:
     if add_randoms == 1:
         randoms_start = scatter_end
         randoms_end = scatter_end + block_size
         randoms_file = join(output_dir, "w3")
 
+        #WARNING: THIS IS THE OLD CODE (READS FULL FILE):
+        #with open(weights_file, "rb") as in_file:
+        #    with open(randoms_file, "wb") as out_file:
+        #        out_file.write(in_file.read()[randoms_start:randoms_end])
+                
+        #TODO: CHECK IF THIS WORKS (READS ONLY PER CHUNKS, USEFUL FOR TOTAL-BODY):
         with open(weights_file, "rb") as in_file:
             with open(randoms_file, "wb") as out_file:
-                out_file.write(in_file.read()[randoms_start:randoms_end])
-
-        output = join(output_dir, "randoms.hdr")
-        tools.create_analyze_from_imgdata(
+                in_file.seek(randoms_start)
+                out_file.write(in_file.read(block_size))
+        
+        output = join(output_dir, "randoms.nii")
+        #output = join(output_dir, "randoms.nii.gz")
+        tools.create_nifti_from_imgdata(
             randoms_file, output, nbins, nangles, nslices, 1, 1, 1, "fl"
         )
         os.remove(randoms_file)
-
 
 def add_randoms(sim_dir, simset_dir, coincidence_window, rebin=True, log_file=False):
     string = "STR      "
@@ -725,7 +737,8 @@ def combine_history_files(simset_dir, history_files, output, log_file):
         stdin=sp.PIPE,
         stdout=sp.PIPE,
         stderr=sp.PIPE,
-    ).communicate("Yes\n")
+    ).communicate("No\n") #No: Do not delete inputs.
+    #).communicate("Yes\n") #old... 
 
     # tools.osrun(rcommand, log_file)
 
