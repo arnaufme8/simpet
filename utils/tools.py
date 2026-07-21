@@ -53,7 +53,7 @@ def nib_load(image, logfile=False):
         else:
             print(message)
 
-def copy_analyze(image1, image2=False, dest_dir=False, logfile=False):
+def copy_analyze(image1, image2=False, dest_dir=False, logfile=False): #NOTE: Potentially unused.
     """
     Create a copy of an Analyze format image
     :param image1: (string) path to the original image
@@ -490,7 +490,7 @@ def convert_hv_to_nii(image, logfile=False, outfile=False):
     
     
 
-def prepare_input_image(image_hdr, logfile, min_voxel_size=1):
+def prepare_input_image(image_hdr, logfile, min_voxel_size=1): #TODO: This may be optimised.
     """
     This method converts input_image to float data type, re-sizes the image to
     1mm size voxels if too large to keep a reasonable analysis execution time and
@@ -588,7 +588,7 @@ def verify_roi_exists(rois_image, roi_number):
     else:
         return True
 
-def operate_single_image(input_image, operation, factor, output_image, logfile):
+def operate_single_image(input_image, operation, factor, output_image, logfile): #NOTE: Potentially unused.
     """
     Given an input image, multiply or divide it by a numerical factor
     saving the result as output_image
@@ -673,7 +673,7 @@ def operate_single_image_nii(input_image, operation, factor, output_image, logfi
     nib.save(nifti_img,output_image)
 
 
-def operate_images_analyze(image1, image2, out_image, operation='mult'):
+def operate_images_analyze(image1, image2, out_image, operation='mult'): #NOTE: Potentially unused.
     """
     Given the input images, calculate the multiplication image or the ratio between them
     :param image1: string, path to the first image
@@ -730,8 +730,7 @@ def operate_images_nii(image1, image2, out_image, operation='mult', check_nans=T
     #data2 = np.nan_to_num(data2) #re-added
     
     """
-    if check_nans:
-        # TODO CHECK IF NEGATIVE VALUES NEED TO BE REMOVED
+    if check_nans: #TODO: Implement this as may be needed. At the moment no NaNs are checked.
         # Remove NaN and negative values
         #data1 = np.nan_to_num(data1)
         #data2 = np.nan_to_num(data2)
@@ -977,7 +976,7 @@ def ncounts(image_hdr):
     ncounts = np.sum(data)
     return ncounts
 
-def convert_simset_sino_to_stir(input_img, output=False):
+def convert_simset_sino_to_stir(input_img, output=False): #NOTE: Potentially unused.
 
     ## To be continued....
 
@@ -1043,46 +1042,16 @@ def convert_simset_sino_to_stir_nii(input_img, output=False):
 
     output_definition = sorted(input_definition, key=itemgetter(3))
     stir_img_data = np.empty(shape, dtype=np.float32, order='C')
-    #stir_img_data_flip_x = np.empty(shape, dtype=np.float32, order='C')
 
     for i in range(n_slices):
 
         output_index = output_definition[i][0]
         input_slice = simset_img_data[:,:,output_index]
         stir_img_data[:,:,i] = input_slice
-
-    #for j in range(n_x):
-    #    stir_img_data_flip_x[j,:,:] = stir_img_data[n_x-1-j, :, :]
-    
-    #WARNING WARNING WARNING: WE COMMENT THAT FOR TESTING, MAY NEED TO COME BACK!
-    #NOTE: POTENTIALLY, WE NEED TO FLIP IN Y. (if so, merge flips)
-    #NOTE: POTENTIALLY z IS ALSO FLIPPED RESPECT TO ATT BUT THEN WE NEED TO CHANGE SEGMENT SIGNS AS WELL!
-    
-    #stir_img_data_flip_x = stir_img_data[::-1,:,:]
-    #stir_img_data_flip_x = stir_img_data_flip_x[:,::-1,:]
-    stir_img_data_flip = stir_img_data[::-1,::-1,:] #WARNING: THIS IS TEMPORAL
-    #stir_img_data_flip = stir_img_data[::-1,::-1,::-1] #WARNING: THIS IS TEMPORAL
-    #stir_img_data_flip_x = stir_img_data
         
-    #stir_img = nib.AnalyzeImage(stir_img_data, simset_img.affine, simset_img.header)
-    #stir_img = nib.Nifti2Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
-    stir_img = nib.Nifti2Image(stir_img_data_flip, simset_img.affine, simset_img.header)
-
-    if not output:
-        output = input_img [0:-4] + '_stir.nii'
-    
-    nib.save(stir_img,output)
-
-
-
-
-""" #WARNING: THIS WAS CORRECT. BUT HAS BEEN REMOVED TO ENSURE ORDER IN SINOGRAMS IS CORRECT.
-def convert_simset_sino_to_stir_nii(input_img, output=False):
-
-    simset_img = nib.load(input_img)
-    simset_img_data = simset_img.get_fdata(dtype=np.float32) #.astype(np.float32) #WARNING! CHANGE DATA TYPE HERE (TO FLOAT32?)
-    shape = simset_img_data.shape
-
+        
+    #TODO: THIS CAN BE SURELY SPEED-UP (FOR TOTAL-BODY), CHECK THIS:
+    """
     n_slices = shape[2]
     nrings = int(np.sqrt(n_slices))   # assuming perfect square
     n_x = shape[0]
@@ -1103,90 +1072,24 @@ def convert_simset_sino_to_stir_nii(input_img, output=False):
     # Reorder slices in one vectorized step
     order = output_definition[:, 0].astype(int)
     stir_img_data = simset_img_data[:, :, order]
-
-    # Flip X dimension
-    stir_img_data_flip_x = stir_img_data[::-1, :, :]
-
-    # Save
-    stir_img = nib.Nifti2Image(stir_img_data_flip_x, simset_img.affine, simset_img.header)
-
-    if not output:
-        output = input_img[:-7] + '_stir.nii.gz'
-
-    nib.save(stir_img, output)
-"""
-
-
-
-"""
-def convert_simset_sino_to_stir_nii(input_img, output=False):
-
-    simset_img = nib.load(input_img)
-    simset_img_data = simset_img.get_data() #simset_img.get_fdata()
-    shape = simset_img_data.shape
-
-    n_slices = shape[2]
-    nrings = int(np.sqrt(n_slices))
-
-    indices = np.arange(n_slices)
-    ring1 = indices // nrings
-    ring2 = indices % nrings
-    segment = ring1 - ring2
-
-    order = np.argsort(segment)
-
-    stir_img_data = simset_img_data[:, :, order]
-    stir_img_data = stir_img_data[::-1, :, :] #flip_x
-
-    stir_img = nib.Nifti2Image(stir_img_data, simset_img.affine, simset_img.header)
-
-    if not output:
-        output = input_img[:-7] + '_stir.nii.gz'
-
-    nib.save(stir_img, output)
-"""
-
-
-"""
-def convert_simset_sino_to_stir_nii(input_img, output):
-
-    simset_img = nib.load(input_img)
-    data = simset_img.dataobj  # memory-mapped
+    """
     
-    print("Check 1")
     
-    shape = simset_img.shape
-    n_slices = shape[2]
-    nrings = int(np.sqrt(n_slices))
-
-    indices = np.arange(n_slices)
-    ring1 = indices // nrings
-    ring2 = indices % nrings
-    segment = ring1 - ring2
-    order = np.argsort(segment)
+    #WARNING: This is still being investigated. At the moment we suspect SimSET sinograms are inverted in x and y respect to STIR. May be also inverted in z.
     
-    print("Check 2")
-    
-    # Preallocate output (float32 recommended if safe)
-    out_data = np.empty(shape, dtype=data.dtype)
-
-    for new_z, old_z in enumerate(order):
-        out_data[:, :, new_z] = data[:, :, old_z]
+    #stir_img_data_flip = stir_img_data[::-1,:,:]
+    stir_img_data_flip = stir_img_data[::-1,::-1,:] #WARNING: THIS IS TEMPORAL
         
-    print("Check 3")
+    stir_img = nib.Nifti2Image(stir_img_data_flip, simset_img.affine, simset_img.header)
 
-    # Flip in-place
-    out_data[:] = out_data[::-1, :, :]
+    if not output:
+        output = input_img [0:-4] + '_stir.nii'
     
-    print("Check 4")
-
-    stir_img = nib.Nifti2Image(out_data, simset_img.affine, simset_img.header)
-    nib.save(stir_img, output)
-    print("Check 5")
-"""
+    nib.save(stir_img,output)
 
 
-def copy_sinogram_stir_to_output(input_img, output_img):
+
+def copy_sinogram_stir_to_output(input_img, output_img): 
     
     
     simset_sino = nib.load(input_img)
@@ -1206,19 +1109,9 @@ def copy_sinogram_stir_to_output(input_img, output_img):
     else:
         print("Image is not in the NifTi format!")
     
-    
-    #Re-added:
-    #shutil.copy(input_img[0:-3] + "nii", output_img)
-    #os.remove(input_img[0:-3] + "nii")
-    #os.remove(input_img[0:-3] + "hdr")
-    
-    #shutil.copy(input_img[0:-6] + "img", output_img)
-    #os.remove(input_img[0:-6] + "img")
-    #os.remove(input_img[0:-6] + "hdr")
-    
 
 #NOTE: THIS FUNCTION MAY BE DELETED IN THE FUTURE...
-def copy_reduced_sinogram_stir_to_output(input_img, output_img, nrings, max_segment):
+def copy_reduced_sinogram_stir_to_output(input_img, output_img, nrings, max_segment): #NOTE: This is unused for now, but is needed for FBP3D
     
     simset_sino = nib.load(input_img)
     sino_dataobj = simset_sino.dataobj
@@ -1236,6 +1129,7 @@ def copy_reduced_sinogram_stir_to_output(input_img, output_img, nrings, max_segm
     os.remove(input_img[0:-3] + "hdr")
 
 
+#NOTE: Following functions may be moved to a BrainVISET tools separate file...
 
 def resampleXYvoxelSizes(image_hdr, xyVoxelSize, log_file):
     img = nib.load(image_hdr)
@@ -1558,7 +1452,7 @@ def fix_4d_data(data):
         return data[:, :, :, 0]
     
 
-def mu_coef_511keV(tissue_n):
+def mu_coef_511keV(tissue_n): #NOTE: Check if this can be done with a internal function of SimSET.
     rows_per_tissue = 1000
 
     start = tissue_n * (rows_per_tissue + 1)
