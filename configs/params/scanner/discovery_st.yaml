@@ -14,8 +14,8 @@ min_energy_window: 375
 max_energy_window: 675
 coincidence_window: 11.7
 numberOfSubsets: 7
-numberOfIterations: 8 #32
-savingInterval: 8 #32 #8
+numberOfIterations: 32
+savingInterval: 8
 analytical_att_correction: 0
 stir_recons_att_corr: 1
 analytic_scatt_corr_factor: 0.15
@@ -29,13 +29,12 @@ subiteration_interval: 4
 x_dir_filter_FWHM: 1.5
 y_dir_filter_FWHM: 1.5
 z_dir_filter_FWHM: 3
-psf_value: 0 #REMEMBER TO CHANGE TO 0!!!!
+psf_value: 0
 add_noise: 0
-max_segment: 23 #2 #23
-zoomFactor: 1 #1.55
+max_segment: 23
+zoomFactor: 1 #For brain: 1.55
 xyOutputSize: 128
 zOutputSize: 47
 zOutputVoxelSize: 3.27
 
-#stir_norm_from_att_map: 1 #1 for correcting with STIR, 0 for correcting with SimSET. WARNING: Should both be unified?
 attenuation_mode: 2 #0: no attenuation, 1: attenuation with SimSET, 2: attenuation with STIR

@@ -1,43 +1,42 @@
 scanner_name: "Siemens Quadra"
-simset_material: 18 #29 = LYSO? 18 = LSO? NOTE: Consider adding param for gap material!
-average_doi: 0.7 #ORIGINAL: 0.84 DOI FROM DISCOVERY, tried 0.1.
+simset_material: 18
+average_doi: 0.7
 scanner_radius: 41.0
-num_rings: 320 #real: 320, papers: 323
-axial_fov: 106 #NoGaps: 102.41 #REAL: 106 # WARNING: MUST BE CHANGED, ONLY FOR TESTING
-z_crystal_size: 0.32
-transaxial_crystal_size: 0.32
-crystal_thickness: 2 #2 # WARNING: CHANGE AGAIN TO 2 (REAL VALUE!). Tried 0.2 cm.
-energy_resolution: 9 #OLD: 16
-num_aa_bins: 399 #380 #REAL: 399 (400 if FBP3D) #USED FOR LOWBIN: 252 #CORRECT: 399 #OLD: 252 #440 #? 210, KEEP DISCOVERY #798/2 = 399
-num_td_bins: 440 #440 #380 #REAL: 520 #used in paper: 440 #USED FOR LOWBIN: 344 #CORRECT: 440 #OLD: 344 #440 #? 249, KEEP DISCOVERY nsize = radius*2/nrad
+num_rings: 320 #Real: 320, With module gaps: 323
+axial_fov: 106
+z_crystal_size: 0.32 #cm
+transaxial_crystal_size: 0.32 #cm
+crystal_thickness: 2 #cm
+energy_resolution: 9
+num_aa_bins: 399
+num_td_bins: 520
 min_energy_window: 435
 max_energy_window: 585
 coincidence_window: 4.7 #ns
 
-numberOfSubsets: 7 #7
-numberOfIterations: 14 #25 #28 #28, 56 #14 #last: 102 #BEFORE: 8 #OLD: 5 #32
-savingInterval: 7 #5 #7 #RECOVER: 8 #OLD: 5 #8 #NOTE: MAKE TO CONVERT IT TO NII ASWELL!
+numberOfSubsets: 7
+numberOfIterations: 14
+savingInterval: 7
 analytical_att_correction: 0
-stir_recons_att_corr: 0 # WARNING: ORIGINALLY TO 1 TO DO ATT CORRECTION.
-analytic_scatt_corr_factor: 0.15 # WARNING: ORIGINAL WAS 0.15. RECOVER. 0 for no scatter
+stir_recons_att_corr: 0
+analytic_scatt_corr_factor: 0.15
 stir_scatt_corr_smoothing: 0
 stir_scatt_simulation: 0
 analytic_randoms_corr_factor: 0.2
 stir_randoms_corr_smoothing: 0
-recons_type: "OSEM3D" #"FBP3D" #"OSEM3D" #try FBP2D...
+recons_type: "OSEM3D" #Options: "FBP2D", "FBP3D", "OSEM2D", "OSEM3D"
 inter_iteration_filter: 0
 subiteration_interval: 4
 x_dir_filter_FWHM: 1.5
 y_dir_filter_FWHM: 1.5
 z_dir_filter_FWHM: 3
-psf_value: 0 #WARNING: RETURN TO 0. IMPORTANT.
+psf_value: 0
 add_noise: 0
 
-max_segment: 85 #last try: 40 #RETURN TO: 85 #OLD: 85 #FULL: 319 #FBP3D: 1, #oldFBP: 10 #85 #319 #85 MAX: 40
-zoomFactor: 1 #0.25 #1
-xyOutputSize: 220 #FOR SR: 300 #NORMAL: 220 #OLD: 440 #110  #440 #220  #CHANGE IT TO DOUBLE OR BY FACTOR OR 3
-zOutputSize: 645 #645 #325  #CHANGE IT TO DOUBLE OR BY FACTOR OR 3
-zOutputVoxelSize: 1.65 #6.6 #1.65 #3.3
+max_segment: 85 #Reduced protocol: 85; Full protocol: 319 or 322
+zoomFactor: 1
+xyOutputSize: 220
+zOutputSize: 645
+zOutputVoxelSize: 1.65
 
-#stir_norm_from_att_map: 1 #1 for correcting with STIR, 0 for correcting with SimSET. WARNING: Should both be unified?
-attenuation_mode: 2 #0: no attenuation, 1: attenuation with SimSET, 2: attenuation with STIR
+attenuation_mode: 0 #0: no attenuation, 1: attenuation with SimSET, 2: attenuation with STIR
