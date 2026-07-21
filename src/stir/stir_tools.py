@@ -8,7 +8,7 @@ import random
 from utils import tools
 from utils import resources as rsc
 
-#OLD VERSION. MUST BE UPDATED FOR STIR 6.0...
+#ATTENTION: Old version, must be updated for STIR >6.0
 def create_stir_hs_from_detparams(scannerParams, output_file, output_format="SimSET"):
     num_rings = scannerParams.get("num_rings")
     max_z = scannerParams.get("axial_fov") / 2
@@ -23,10 +23,10 @@ def create_stir_hs_from_detparams(scannerParams, output_file, output_format="Sim
     max_td = scannerParams.get("scanner_radius")
     td_bins = scannerParams.get("num_td_bins")
     bin_size = (max_td - min_td) / float(td_bins)
-    matrix_size, ring_difference = generate_segments_lists_stir( #WARNING! RECOVER THIS IF STOPS WORKING.
+    matrix_size, ring_difference = generate_segments_lists_stir(
         num_rings, num_rings - 1
     )
-    #matrix_size, ring_difference = generate_segments_lists_stir( #WARNING! THIS IS NEEDED FOR FBP3D
+    #matrix_size, ring_difference = generate_segments_lists_stir( #NOTE: This will be needed for FBP
     #    num_rings, max_segment
     #)
     transaxial_crystal_distance = scannerParams.get("transaxial_crystal_size")
@@ -65,7 +65,7 @@ def create_stir_hs_from_detparams(scannerParams, output_file, output_format="Sim
         + "number of dimensions := 4\n"
         + "matrix axis label [4] := segment\n"
         + "!matrix size [4] := "
-        + str(2 * (num_rings - 1) + 1) #WARNING! RECOVER THIS: str(2 * (num_rings - 1) + 1) #WARNING! THIS IS NEEDED FOR FBP3D: str(2 * (max_segment) + 1)
+        + str(2 * (num_rings - 1) + 1) #WARNING: For FBP we need to do: str(2 * (max_segment) + 1)
         + "\n"
         + "matrix axis label ["
         + str(views_coordinate)
@@ -166,12 +166,12 @@ def generate_segments_lists_stir(nrings, max_segment):
     my_matrix_ring_difference = " "
     for i in range(last_segment_sinograms, nrings):
         my_matrix_size = my_matrix_size + str(i) + ","
-        my_matrix_ring_difference = my_matrix_ring_difference + str(i - nrings) + "," #WARNING! RECOVER IF FAILS.
-        #my_matrix_ring_difference = my_matrix_ring_difference + str(nrings - i) + "," #NOTE: suspect rings are inverted.
+        my_matrix_ring_difference = my_matrix_ring_difference + str(i - nrings) + "," 
+        #my_matrix_ring_difference = my_matrix_ring_difference + str(nrings - i) + "," #NOTE: in case rings are invented.
     for i in range(nrings, last_segment_sinograms - 1, -1):
         my_matrix_size = my_matrix_size + str(i) + ","
-        my_matrix_ring_difference = my_matrix_ring_difference + str(nrings - i) + "," #WARNING! RECOVER IF FAILS.
-        #my_matrix_ring_difference = my_matrix_ring_difference + str(i - nrings) + "," #NOTE: suspect rings are inverted.
+        my_matrix_ring_difference = my_matrix_ring_difference + str(nrings - i) + "," 
+        #my_matrix_ring_difference = my_matrix_ring_difference + str(i - nrings) + "," #NOTE: in case rings are invented.
 
     my_matrix_size = "{" + my_matrix_size[0:-1] + "}"
     my_matrix_ring_difference = "{" + my_matrix_ring_difference[0:-1] + "}"
@@ -322,10 +322,9 @@ def FBP2D_recons(config, scannerParams, sinograms_stir, output_dir, log_file):
     tools.osrun(command, log_file)
 
     output = recFileName + ".hv"
-    #output = tools.anything_to_hdr_convert(output, log_file)
     
     output = tools.convert_hv_to_nii(output, log_file)
-    tools.flip_rec_nifti(recFileName + ".nii", join(output_dir, "reconstruction.nii")) #WARNING! REMOVE IF THIS FAILS. THIS FLIPS THE FINAL REC IN 0 AXIS
+    tools.flip_rec_nifti(recFileName + ".nii", join(output_dir, "reconstruction.nii")) #TODO: We need to check the flips done here. Final reconstruction is flipped from maps (due to sinogram flipping).
 
     return output
 
@@ -382,7 +381,6 @@ def FBP3D_recons(config, scannerParams, sinograms_stir, output_dir, log_file):
     tools.osrun(command, log_file)
 
     output = recFileName + ".hv"
-    #output = tools.anything_to_hdr_convert((output))
     
     output = tools.convert_hv_to_nii(output, log_file)
     tools.flip_rec_nifti(recFileName + ".nii", join(output_dir, "reconstruction.nii")) #WARNING! REMOVE IF THIS FAILS. THIS FLIPS THE FINAL REC IN 0 AXIS
@@ -457,7 +455,7 @@ def OSEM2D_recons(
     zoom_aux = 1
     xyOutputSize_aux = round(xyOutputSize / zoom)
 
-    if scannerParams.get("analytical_att_correction") == 1: #CHECK THIS!!!!
+    if scannerParams.get("analytical_att_correction") == 1:
         att_corr_str = ""
     elif scannerParams.get("stir_recons_att_corr") == 1:
         att_corr_str = (
@@ -600,35 +598,7 @@ def OSEM3D_recons(
     numberOfIterations = scannerParams.get("numberOfIterations")
     savingInterval = scannerParams.get("savingInterval")
     
-    """ #RESTABLISH IF FAILS
-    if scannerParams.get("stir_recons_att_corr") == 1:
-        att_corr_str = (
-            "Bin Normalisation type := From ProjData \n"
-            + "Bin Normalisation From ProjData := \n"
-            + "normalisation projdata filename:= "
-            + att_stir
-            + "\n"
-            + "End Bin Normalisation From ProjData:= \n"
-        )
-    else:
-        att_corr_str = ""
-    """
-    
-    #THIS IS TO CORRECT FROM IMG DIRECTLY, SEEMS TO NOT BE NECESSARY:
-    """
-    if scannerParams.get("stir_norm_from_att_map") == 1:
-        att_corr_str = (
-            #"Bin Normalisation From Attenuation Image:= \n"
-            "Bin Normalisation type := From Attenuation Image \n"
-            + "Bin Normalisation From Attenuation Image:= \n"
-            + "attenuation_image_filename := " 
-            + join(output_dir, 'mu_map.hv')
-            + "\n"
-            + "End Bin Normalisation From Attenuation Image := \n"
-        )
-    """
-    #WARNING: UNIFY IF STIR_ATT IS USED.
-    #if scannerParams.get("stir_norm_from_att_map") == 1:
+    #TODO: To unify these blocks if stir_att file with same name is generated with both methods.
     if scannerParams.get("attenuation_mode") == 1:
         att_corr_str = (
             "Bin Normalisation type := From ProjData \n"
@@ -754,22 +724,11 @@ def OSEM3D_recons(
 
     new_file.close()
     
-    #RESTABLISH IF FAILS!!!!
     command = "%s %s >> %s" % (recons, paramsFile, log_file)
     tools.osrun(command, log_file)
     
-    #recon=stir.OSMAPOSLReconstruction3DFloat(paramsFile)
-    
-    #print("ATTRIBUTES:", dir(recon))
-    
-    #target=recon.get_initial_data()
-    #target.fill(1)
-    #s=recon.set_up(target)
-    #recon.reconstruct(target)
-
     output = recFileName + "_" + str(scannerParams.get("numberOfIterations")) + ".hv"
 
-    #output = tools.anything_to_hdr_convert(output, log_file)
     output = tools.convert_hv_to_nii(output, log_file)
     tools.flip_rec_nifti(recFileName + "_" + str(scannerParams.get("numberOfIterations")) + ".nii", join(output_dir, "reconstruction.nii")) #WARNING! REMOVE IF THIS FAILS. THIS FLIPS THE FINAL REC IN 0 AXIS
 
