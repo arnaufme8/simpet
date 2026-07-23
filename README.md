@@ -10,7 +10,7 @@ The SIMPET project is intended to allow to setup and launch MC simulation on a s
 - Apply the BrainViset procedure to obtain realistic Activity and Attenuation maps.
 - Run Analytic simulations using STIR simulation procedure and MC simulation using SimSET.
 
-# Installtion
+# Installation
 
 1. Install [Git LFS](https://git-lfs.com/).
 2. Clone the repository by adding the `--recurse-submodules` flag:
@@ -52,6 +52,7 @@ Sometimes, even activating the virtual environemnt, the shell will use the wide 
 ```
 make install
 ```
+_NOTE:_ At the moment, to install SimPET you need to have sudo available in your computer. If you don't (e.g., when installing on a HPC), you can make use of the makefile that does not require sudo: ```makefile-withoutsudo```. To use it, simply remove or change the name of ```makefile```, and rename the file ```makefile-withoutsudo``` to ```makefile```. This will allow the installation without root privileges.
 
 7. Decompress dummy data with:
 ```
@@ -277,8 +278,9 @@ See [SimSET](https://depts.washington.edu/simset/html/simset_main.html) document
 
 #### Attenuation correction
 
-- **analytical_att_correction**: performed by SimSET calcattenuation.
+- **analytical_att_correction**: performed by SimSET calcattenuation. (_NOTE: obsolete at the moment and will be removed in further updates_).
 - **stir_recons_att_corr**:  performed in STIR by entering the att image as a normalization map.
+- **attenuation_mode**: it has three options. 0 (no attenuation), 1 (attenuation by SimSET calcattenuation) or 2 (attenuation by STIR computation of the ACFs).
 
 #### Scatter Correction
 
